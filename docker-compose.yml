@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: transporterural_db
+    environment:
+      POSTGRES_DB: transporterural
+      POSTGRES_USER: transporterural
+      POSTGRES_PASSWORD: password123
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - transporterural_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transporterural -d transporterural"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: transporterural_backend
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://transporterural:password123@db:5432/transporterural
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=transporterural
+      - DB_USER=transporterural
+      - DB_PASSWORD=password123
+      - JWT_SECRET=tu_jwt_secret_super_seguro_aqui
+      - CORS_ORIGIN=http://localhost:3000,http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - transporterural_network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Frontend Flutter Web
+  flutter:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: transporterural_flutter
+    environment:
+      - FLUTTER_WEB_PORT=8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - transporterural_network
+    restart: unless-stopped
+    volumes:
+      - ./mobile:/app
+    command: flutter run -d chrome --web-port 8080 --web-hostname 0.0.0.0
+
+  # Nginx (opcional - para producción)
+  nginx:
+    image: nginx:alpine
+    container_name: transporterural_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - backend
+      - flutter
+    networks:
+      - transporterural_network
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  transporterural_network:
+    driver: bridge
