@@ -271,12 +271,12 @@ class _VisualMapWidgetState extends State<VisualMapWidget> {
               ],
             ),
             const SizedBox(height: 12),
-            _buildDetailRow('Ruta', '${bus.routeId}'),
-            _buildDetailRow('Conductor', '${bus.driverId}'),
+            _buildDetailRow('Ruta', bus.routeId ?? 'N/A'),
+            _buildDetailRow('Conductor', bus.driverId?.toString() ?? 'N/A'),
             _buildDetailRow('Estado', bus.status),
             _buildDetailRow('Latitud', bus.latitude.toStringAsFixed(6)),
             _buildDetailRow('Longitud', bus.longitude.toStringAsFixed(6)),
-            _buildDetailRow('Última actualización', bus.lastUpdate),
+            _buildDetailRow('Última actualización', bus.lastUpdate ?? 'N/A'),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -348,7 +348,7 @@ class _VisualMapWidgetState extends State<VisualMapWidget> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Ruta: ${bus.routeId}',
+                      'Ruta: ${bus.routeId ?? 'N/A'}',
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
@@ -373,4 +373,3 @@ class _VisualMapWidgetState extends State<VisualMapWidget> {
     );
   }
 }
-

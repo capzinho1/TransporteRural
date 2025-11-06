@@ -19,7 +19,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // initialIndex: 2 para que inicie en la pestaña del Mapa
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 2);
     _loadInitialData();
   }
 

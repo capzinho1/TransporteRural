@@ -1,30 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const { supabase } = require('../config/supabase');
 
 // GET /api/usuarios - Obtener todos los usuarios
 router.get('/', async (req, res) => {
   try {
-    // TODO: Implementar consulta a base de datos
-    const usuarios = [
-      {
-        id: 1,
-        nombre: 'María González',
-        email: 'maria@email.com',
-        telefono: '+56987654321',
-        tipo: 'pasajero',
-        activo: true,
-        createdAt: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: 2,
-        nombre: 'Carlos López',
-        email: 'carlos@email.com',
-        telefono: '+56912345678',
-        tipo: 'conductor',
-        activo: true,
-        createdAt: '2024-01-10T08:15:00Z'
-      }
-    ];
+    const { data: usuarios, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
     
     res.json({
       success: true,
@@ -45,20 +31,20 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // TODO: Implementar consulta a base de datos
-    const usuario = {
-      id: parseInt(id),
-      nombre: 'María González',
-      email: 'maria@email.com',
-      telefono: '+56987654321',
-      tipo: 'pasajero',
-      activo: true,
-      preferencias: {
-        notificaciones: true,
-        idioma: 'es'
-      },
-      createdAt: '2024-01-15T10:30:00Z'
-    };
+    const { data: usuario, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
     
     res.json({
       success: true,
@@ -76,22 +62,22 @@ router.get('/:id', async (req, res) => {
 // POST /api/usuarios - Crear nuevo usuario
 router.post('/', async (req, res) => {
   try {
-    const { nombre, email, telefono, tipo, password } = req.body;
+    const { name, email, role, notification_tokens } = req.body;
     
-    // TODO: Implementar validación y guardado en base de datos
-    const nuevoUsuario = {
-      id: Date.now(),
-      nombre,
-      email,
-      telefono,
-      tipo,
-      activo: true,
-      preferencias: {
-        notificaciones: true,
-        idioma: 'es'
-      },
-      createdAt: new Date().toISOString()
-    };
+    const { data: nuevoUsuario, error } = await supabase
+      .from('users')
+      .insert([
+        {
+          name,
+          email,
+          role: role || 'user',
+          notification_tokens: notification_tokens || null
+        }
+      ])
+      .select()
+      .single();
+    
+    if (error) throw error;
     
     res.status(201).json({
       success: true,
@@ -112,30 +98,47 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-        // TODO: Implementar autenticación real
-        if (email === 'usuario@transporterural.com' && password === 'usuario123') {
-          const token = 'jwt_token_example_' + Date.now();
-          
-          res.json({
-            success: true,
-            data: {
-              token,
-              usuario: {
-                id: 1,
-                name: 'Usuario de Prueba',
-                email: 'usuario@transporterural.com',
-                role: 'user',
-                notification_tokens: null
-              }
-            },
-            message: 'Login exitoso'
-          });
-    } else {
-      res.status(401).json({
+    // Buscar usuario en Supabase
+    const { data: usuario, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error || !usuario) {
+      return res.status(401).json({
         success: false,
         error: 'Credenciales inválidas'
       });
     }
+    
+    // TODO: Implementar verificación real de contraseña con bcrypt
+    // Por ahora, aceptamos credenciales de prueba
+    const validPasswords = {
+      'admin@transporterural.com': 'admin123',
+      'usuario@transporterural.com': 'usuario123',
+      'conductor1@transporterural.com': 'conductor123',
+      'conductor2@transporterural.com': 'conductor123'
+    };
+    
+    if (validPasswords[email] !== password) {
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciales inválidas'
+      });
+    }
+    
+    // Generar token simple (TODO: implementar JWT real)
+    const token = 'jwt_token_' + Date.now();
+    
+    res.json({
+      success: true,
+      data: {
+        token,
+        usuario: usuario
+      },
+      message: 'Login exitoso'
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -149,16 +152,22 @@ router.post('/login', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, telefono, preferencias } = req.body;
+    const { name, email, role, notification_tokens } = req.body;
     
-    // TODO: Implementar actualización en base de datos
-    const usuarioActualizado = {
-      id: parseInt(id),
-      nombre,
-      telefono,
-      preferencias,
-      updatedAt: new Date().toISOString()
-    };
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (role !== undefined) updateData.role = role;
+    if (notification_tokens !== undefined) updateData.notification_tokens = notification_tokens;
+    
+    const { data: usuarioActualizado, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
     
     res.json({
       success: true,
@@ -179,7 +188,13 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // TODO: Implementar eliminación en base de datos
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
     res.json({
       success: true,
       message: `Usuario ${id} eliminado exitosamente`

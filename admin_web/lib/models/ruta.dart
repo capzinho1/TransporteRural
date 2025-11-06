@@ -1,7 +1,7 @@
 class Ruta {
-  final String routeId; // Cambiado de int a String
+  final String routeId;
   final String name;
-  final dynamic schedule; // Cambiado a dynamic para soportar String o Map
+  final String schedule;
   final List<Parada> stops;
   final String polyline;
 
@@ -35,22 +35,6 @@ class Ruta {
       'polyline': polyline,
     };
   }
-
-  Ruta copyWith({
-    String? routeId,
-    String? name,
-    dynamic schedule,
-    List<Parada>? stops,
-    String? polyline,
-  }) {
-    return Ruta(
-      routeId: routeId ?? this.routeId,
-      name: name ?? this.name,
-      schedule: schedule ?? this.schedule,
-      stops: stops ?? this.stops,
-      polyline: polyline ?? this.polyline,
-    );
-  }
 }
 
 class Parada {
@@ -59,7 +43,6 @@ class Parada {
   final double latitude;
   final double longitude;
   final int? order;
-  final int? orden; // Soporte para ambos nombres
 
   Parada({
     this.id,
@@ -67,7 +50,6 @@ class Parada {
     required this.latitude,
     required this.longitude,
     this.order,
-    this.orden,
   });
 
   factory Parada.fromJson(Map<String, dynamic> json) {
@@ -77,17 +59,16 @@ class Parada {
       latitude: (json['latitude'] ?? json['latitud'] ?? 0.0).toDouble(),
       longitude: (json['longitude'] ?? json['longitud'] ?? 0.0).toDouble(),
       order: json['order'] ?? json['orden'],
-      orden: json['orden'] ?? json['order'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'name': name,
       'latitude': latitude,
       'longitude': longitude,
-      'order': order ?? orden,
+      if (order != null) 'order': order,
     };
   }
 }

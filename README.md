@@ -15,7 +15,8 @@ TransporteRural es una aplicación que permite:
 ```
 TransporteRural/
 ├── backend/           # API REST con Node.js + Express
-├── mobile/           # App Flutter (Web/Móvil)
+├── mobile/           # App Flutter (Pasajeros - Web/Móvil)
+├── admin_web/        # Panel Administrativo Flutter (Web)
 ├── database/         # Scripts de inicialización PostgreSQL
 ├── nginx/           # Configuración de proxy reverso
 ├── docker-compose.yml
@@ -89,7 +90,8 @@ docker-compose logs flutter
 | Servicio | URL | Descripción |
 |----------|-----|-------------|
 | **Backend API** | http://localhost:3000 | API REST |
-| **Frontend Flutter** | http://localhost:8080 | App Web |
+| **App Móvil (Web)** | http://localhost:8080 | App para pasajeros |
+| **Panel Admin (Web)** | http://localhost:8081 | Dashboard administrativo |
 | **Base de Datos** | localhost:5432 | PostgreSQL |
 | **Nginx** | http://localhost:80 | Proxy (producción) |
 
@@ -126,9 +128,17 @@ docker-compose logs flutter
 ## 📱 Uso de la Aplicación
 
 ### Credenciales de Prueba
+
+**Usuario Normal (App Móvil):**
 ```
 Email: usuario@transporterural.com
 Contraseña: usuario123
+```
+
+**Administrador (Panel Admin):**
+```
+Email: admin@transporterural.com
+Contraseña: admin123
 ```
 
 ### Funcionalidades Principales
@@ -146,10 +156,12 @@ Contraseña: usuario123
 4. **Comunicarse** con administración
 
 #### Para Administradores
-1. **Gestionar buses** y rutas
-2. **Monitorear recorridos** en tiempo real
-3. **Administrar usuarios**
-4. **Generar reportes**
+1. **Panel de control** con estadísticas en tiempo real
+2. **Gestionar buses** (CRUD completo)
+3. **Gestionar rutas** (CRUD completo)
+4. **Administrar usuarios** (CRUD completo)
+5. **Asignar roles** (Admin, Conductor, Usuario)
+6. **Monitorear sistema** en tiempo real
 
 ## 🔧 Desarrollo
 
@@ -197,16 +209,31 @@ npm run dev
 npm test
 ```
 
-#### Frontend
+#### Frontend (App Móvil)
 ```bash
-# Entrar al contenedor
-docker-compose exec flutter bash
+# Navegar al directorio
+cd mobile
+
+# Instalar dependencias
+flutter pub get
+
+# Ejecutar en modo desarrollo (Web)
+flutter run -d chrome --web-port 8080
+
+# Ejecutar tests
+flutter test
+```
+
+#### Panel Administrativo
+```bash
+# Navegar al directorio
+cd admin_web
 
 # Instalar dependencias
 flutter pub get
 
 # Ejecutar en modo desarrollo
-flutter run -d chrome
+flutter run -d chrome --web-port 8081
 
 # Ejecutar tests
 flutter test

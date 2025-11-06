@@ -34,14 +34,14 @@ class BusLocation {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'bus_id': busId,
-      'route_id': routeId,
-      'driver_id': driverId,
+      if (routeId != null) 'route_id': routeId,
+      if (driverId != null) 'driver_id': driverId,
       'latitude': latitude,
       'longitude': longitude,
       'status': status,
-      'last_update': lastUpdate,
+      if (lastUpdate != null) 'last_update': lastUpdate,
     };
   }
 

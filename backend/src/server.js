@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+const { testConnection } = require('./config/supabase');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -65,10 +67,13 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚌 TransporteRural API ejecutándose en puerto ${PORT}`);
   console.log(`🌐 Acceso: http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  
+  // Verificar conexión a Supabase
+  await testConnection();
 });
 
 module.exports = app;

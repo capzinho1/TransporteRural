@@ -88,7 +88,7 @@ class BusCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Ruta: ${busLocation.routeId}',
+                        'Ruta: ${busLocation.routeId ?? 'N/A'}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
@@ -98,12 +98,12 @@ class BusCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Conductor: ${busLocation.driverId}',
+                      'Conductor: ${busLocation.driverId ?? 'N/A'}',
                       style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      busLocation.lastUpdate,
+                      busLocation.lastUpdate ?? 'N/A',
                       style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     ),
                   ],
@@ -198,16 +198,18 @@ class BusCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDetailRow('Bus ID', '${busLocation.busId}'),
-            _buildDetailRow('Ruta', 'Ruta #${busLocation.routeId}'),
-            _buildDetailRow('Conductor', '${busLocation.driverId}'),
+            _buildDetailRow('Bus ID', busLocation.busId),
+            _buildDetailRow('Ruta', 'Ruta #${busLocation.routeId ?? 'N/A'}'),
+            _buildDetailRow(
+                'Conductor', busLocation.driverId?.toString() ?? 'N/A'),
             _buildDetailRow('Estado', busLocation.status),
             _buildDetailRow(
               'Ubicación',
               'Lat: ${busLocation.latitude.toStringAsFixed(6)}\n'
                   'Lng: ${busLocation.longitude.toStringAsFixed(6)}',
             ),
-            _buildDetailRow('Última actualización', busLocation.lastUpdate),
+            _buildDetailRow(
+                'Última actualización', busLocation.lastUpdate ?? 'N/A'),
           ],
         ),
         actions: [

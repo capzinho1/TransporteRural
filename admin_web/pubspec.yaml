@@ -1,0 +1,57 @@
+name: transporte_rural_admin
+description: Panel Administrativo para TransporteRural
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI y Material Design
+  cupertino_icons: ^1.0.6
+  material_design_icons_flutter: ^7.0.7296
+  flutter_svg: ^2.0.9
+
+  # HTTP y networking
+  http: ^1.1.0
+  dio: ^5.3.2
+
+  # Estado y gestión de datos
+  provider: ^6.1.1
+
+  # Tablas de datos
+  data_table_2: ^2.5.12
+  
+  # Gráficos y estadísticas
+  fl_chart: ^0.65.0
+  syncfusion_flutter_charts: ^23.2.7
+
+  # Mapas
+  google_maps_flutter: ^2.5.0
+  google_maps_flutter_web: ^0.5.4+3
+
+  # Utilidades
+  intl: ^0.18.1
+  uuid: ^4.2.1
+
+  # Navegación
+  go_router: ^13.0.0
+
+  # Almacenamiento
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+

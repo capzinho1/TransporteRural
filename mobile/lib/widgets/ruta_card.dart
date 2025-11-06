@@ -101,7 +101,7 @@ class RutaCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Horario: ${ruta.schedule}',
+                      'Horario: ${_formatSchedule(ruta.schedule)}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -189,7 +189,7 @@ class RutaCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildDetailRow('Nombre', ruta.name),
-              _buildDetailRow('Horario', ruta.schedule),
+              _buildDetailRow('Horario', _formatSchedule(ruta.schedule)),
               _buildDetailRow('Paradas', '${ruta.stops.length} paradas'),
               _buildDetailRow('Polyline',
                   ruta.polyline.isNotEmpty ? 'Disponible' : 'No disponible'),
@@ -289,5 +289,26 @@ class RutaCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatSchedule(dynamic schedule) {
+    if (schedule == null) return 'No especificado';
+
+    if (schedule is String) {
+      return schedule;
+    }
+
+    if (schedule is Map) {
+      // Si es un Map con horarios
+      if (schedule.containsKey('horarios')) {
+        final horarios = schedule['horarios'];
+        if (horarios is List) {
+          return horarios.join(', ');
+        }
+      }
+      return schedule.toString();
+    }
+
+    return schedule.toString();
   }
 }
