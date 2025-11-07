@@ -118,10 +118,25 @@ router.post('/login', async (req, res) => {
       'admin@transporterural.com': 'admin123',
       'usuario@transporterural.com': 'usuario123',
       'conductor1@transporterural.com': 'conductor123',
-      'conductor2@transporterural.com': 'conductor123'
+      'conductor2@transporterural.com': 'conductor123',
+      // Conductores adicionales de la base de datos
+      'pedro.gomez@transporterural.com': 'conductor123',
+      'maria.silva@transporterural.com': 'conductor123',
+      'juan.torres@transporterural.com': 'conductor123',
+      'carmen.rojas@transporterural.com': 'conductor123',
+      'luis.morales@transporterural.com': 'conductor123',
+      'ana.fernandez@transporterural.com': 'conductor123'
     };
     
-    if (validPasswords[email] !== password) {
+    // Si el usuario es un conductor y no está en la lista, aceptar con contraseña por defecto
+    const isDriver = usuario.role === 'driver';
+    const defaultDriverPassword = 'conductor123';
+    
+    // Verificar contraseña
+    const isValidPassword = validPasswords[email] === password || 
+                           (isDriver && password === defaultDriverPassword);
+    
+    if (!isValidPassword) {
       return res.status(401).json({
         success: false,
         error: 'Credenciales inválidas'

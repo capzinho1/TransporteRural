@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../widgets/georu_logo.dart';
+import '../models/usuario.dart';
 import 'home_screen.dart';
+import 'driver_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,7 +17,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _autocompleteKey = GlobalKey<FormFieldState<String>>();
   bool _obscurePassword = true;
+  List<Usuario> _conductores = [];
+  String? _selectedEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadConductores();
+    });
+  }
 
   @override
   void dispose() {
@@ -23,18 +37,49 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _loadConductores() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    await appProvider.loadUsuarios();
+    if (mounted) {
+      setState(() {
+        _conductores = appProvider.conductores;
+      });
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
 
+      // Extraer email si viene en formato "Nombre (email)"
+      String email = _emailController.text.trim();
+      if (email.contains('(') && email.contains(')')) {
+        email = email.split('(').last.split(')').first.trim();
+      }
+      
+      // Si hay un email seleccionado, usarlo
+      if (_selectedEmail != null) {
+        email = _selectedEmail!;
+      }
+
       final success = await appProvider.login(
-        _emailController.text.trim(),
+        email,
         _passwordController.text,
       );
 
       if (success && mounted) {
+        // Redirigir según el rol del usuario
+        final userRole = appProvider.currentUser?.role ?? 'user';
+        Widget destination;
+        
+        if (userRole == 'driver') {
+          destination = const DriverScreen();
+        } else {
+          destination = const HomeScreen();
+        }
+        
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (context) => destination),
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -61,40 +106,19 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
 
-                // Logo y título
+                // Logo GeoRu y título
                 Center(
                   child: Column(
                     children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.directions_bus,
-                          size: 50,
-                          color: Colors.white,
-                        ),
+                      // Logo completo con ícono y texto
+                      const GeoRuLogo(
+                        size: 120,
+                        showText: true,
+                        showSlogan: false,
+                        showBackground: true,
+                        backgroundColor: Colors.white,
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Transporte Rural',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2E7D32),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       const Text(
                         'Inicia sesión para continuar',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -105,30 +129,135 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 40),
 
-                // Campo de email
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'Ingresa tu email',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF2E7D32)),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu email';
+                // Campo de email con autocompletado para conductores
+                Autocomplete<Usuario>(
+                  key: _autocompleteKey,
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return _conductores;
                     }
-                    if (!value.contains('@')) {
-                      return 'Por favor ingresa un email válido';
+                    final query = textEditingValue.text.toLowerCase();
+                    return _conductores.where((conductor) {
+                      final email = conductor.email.toLowerCase();
+                      final name = conductor.name.toLowerCase();
+                      return email.contains(query) || name.contains(query);
+                    }).toList();
+                  },
+                  displayStringForOption: (Usuario conductor) => 
+                      '${conductor.name} (${conductor.email})',
+                  fieldViewBuilder: (
+                    BuildContext context,
+                    TextEditingController textEditingController,
+                    FocusNode focusNode,
+                    VoidCallback onFieldSubmitted,
+                  ) {
+                    // Sincronizar con el controlador principal
+                    if (_emailController.text != textEditingController.text) {
+                      _emailController.text = textEditingController.text;
                     }
-                    return null;
+                    textEditingController.addListener(() {
+                      _emailController.text = textEditingController.text;
+                    });
+                    
+                    return TextFormField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Email o Nombre del Conductor',
+                        hintText: 'Busca por nombre o email',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        suffixIcon: _conductores.isNotEmpty
+                            ? const Icon(Icons.arrow_drop_down)
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF2E7D32)),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor ingresa tu email';
+                        }
+                        // Extraer email si viene en formato "Nombre (email)"
+                        final email = value.contains('(') && value.contains(')')
+                            ? value.split('(').last.split(')').first.trim()
+                            : value.trim();
+                        if (!email.contains('@')) {
+                          return 'Por favor ingresa un email válido';
+                        }
+                        return null;
+                      },
+                    );
+                  },
+                  onSelected: (Usuario conductor) {
+                    setState(() {
+                      _selectedEmail = conductor.email;
+                      _emailController.text = conductor.email;
+                    });
+                  },
+                  optionsViewBuilder: (
+                    BuildContext context,
+                    AutocompleteOnSelected<Usuario> onSelected,
+                    Iterable<Usuario> options,
+                  ) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final conductor = options.elementAt(index);
+                              return InkWell(
+                                onTap: () => onSelected(conductor),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.person,
+                                        color: Color(0xFF2E7D32),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              conductor.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              conductor.email,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
                   },
                 ),
 

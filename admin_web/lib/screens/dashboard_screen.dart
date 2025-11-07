@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
+import '../widgets/georu_logo.dart';
 import 'routes_drivers_screen.dart';
 import 'route_templates_screen.dart';
 import 'users_management_screen.dart';
@@ -49,7 +50,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panel Administrativo - TransporteRural'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const GeoRuLogo(
+              size: 28,
+              showText: false,
+              showSlogan: false,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'GeoRu - Panel Admin',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
@@ -85,20 +102,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Icon(
-                  Icons.admin_panel_settings,
-                  size: 48,
-                  color: Colors.white,
+                const Row(
+                  children: [
+                    GeoRuLogo(
+                      size: 48,
+                      showText: false,
+                      showSlogan: false,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'GeoRu',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Panel Administrativo',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Panel Admin',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
                 Consumer<AdminProvider>(
                   builder: (context, adminProvider, child) {
                     return Text(

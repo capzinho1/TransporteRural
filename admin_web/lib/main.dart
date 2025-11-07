@@ -15,7 +15,7 @@ class TransporteRuralAdminApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AdminProvider(),
       child: MaterialApp(
-        title: 'TransporteRural Admin',
+        title: 'GeoRu - Panel Administrativo',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.deepPurple,

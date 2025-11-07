@@ -3,12 +3,16 @@ import 'package:geolocator/geolocator.dart';
 import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
+import '../models/notificacion.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 
 class AppProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
   final LocationService _locationService = LocationService();
+
+  // Getter para acceder al ApiService desde fuera
+  ApiService get apiService => _apiService;
 
   // Estado de la aplicación
   bool _isLoading = false;
@@ -17,6 +21,8 @@ class AppProvider extends ChangeNotifier {
   Position? _currentPosition;
   List<BusLocation> _busLocations = [];
   List<Ruta> _rutas = [];
+  List<Usuario> _usuarios = [];
+  List<Notificacion> _notifications = [];
 
   // Getters
   bool get isLoading => _isLoading;
@@ -25,6 +31,11 @@ class AppProvider extends ChangeNotifier {
   Position? get currentPosition => _currentPosition;
   List<BusLocation> get busLocations => _busLocations;
   List<Ruta> get rutas => _rutas;
+  List<Usuario> get usuarios => _usuarios;
+  List<Notificacion> get notifications => _notifications;
+  
+  // Obtener solo conductores
+  List<Usuario> get conductores => _usuarios.where((u) => u.role == 'driver').toList();
 
   // Métodos para manejar el estado de carga
   void _setLoading(bool loading) {
@@ -141,6 +152,48 @@ class AppProvider extends ChangeNotifier {
       return _rutas.firstWhere((ruta) => ruta.routeId == id);
     } catch (e) {
       return null;
+    }
+  }
+
+  // === USUARIOS ===
+  Future<void> loadUsuarios() async {
+    try {
+      _setLoading(true);
+      _usuarios = await _apiService.getUsuarios();
+      _setLoading(false);
+    } catch (e) {
+      _setError('Error al cargar usuarios: $e');
+      _setLoading(false);
+    }
+  }
+
+  // === NOTIFICACIONES ===
+  Future<void> loadNotifications() async {
+    try {
+      _setLoading(true);
+      final driverId = _currentUser?.id;
+      BusLocation? myBus;
+      
+      if (driverId != null) {
+        try {
+          myBus = _busLocations.firstWhere(
+            (bus) => bus.driverId == driverId,
+          );
+        } catch (e) {
+          // No hay bus asignado
+        }
+      }
+      
+      final routeId = myBus?.routeId;
+      
+      _notifications = await _apiService.getNotifications(
+        driverId: driverId,
+        routeId: routeId,
+      );
+      _setLoading(false);
+    } catch (e) {
+      _setError('Error al cargar notificaciones: $e');
+      _setLoading(false);
     }
   }
 

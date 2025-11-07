@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
+import '../widgets/georu_logo.dart';
 import 'dashboard_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -82,45 +83,25 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Logo y título
+                      // Logo GeoRu y título
                       Center(
                         child: Column(
                           children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: Colors.deepPurple,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.deepPurple.withOpacity(0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.admin_panel_settings,
-                                size: 40,
-                                color: Colors.white,
-                              ),
+                            // Logo completo con ícono y texto
+                            const GeoRuLogo(
+                              size: 100,
+                              showText: true,
+                              showSlogan: false,
+                              showBackground: true,
+                              backgroundColor: Colors.white,
                             ),
                             const SizedBox(height: 16),
                             const Text(
                               'Panel Administrativo',
                               style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
                                 color: Colors.deepPurple,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'TransporteRural',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
                               ),
                             ),
                           ],
@@ -254,22 +235,28 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.admin_panel_settings,
-                                      color: Colors.amber,
-                                      size: 20,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Acceso Admin:',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                Flexible(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(
+                                        Icons.admin_panel_settings,
                                         color: Colors.amber,
+                                        size: 20,
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Acceso Admin:',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.amber,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 TextButton.icon(
                                   onPressed: _autoFillCredentials,

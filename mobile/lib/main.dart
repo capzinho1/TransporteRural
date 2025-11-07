@@ -6,6 +6,7 @@ import 'services/api_service.dart';
 import 'services/location_service.dart';
 import 'providers/app_provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/driver_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 
@@ -30,7 +31,7 @@ class TransporteRuralApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppProvider()),
       ],
       child: MaterialApp(
-        title: 'Transporte Rural',
+        title: 'GeoRu - App Rural en Tiempo Real',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.green,
@@ -60,6 +61,7 @@ class TransporteRuralApp extends StatelessWidget {
         routes: {
           '/login': (context) => const LoginScreen(),
           '/home': (context) => const HomeScreen(),
+          '/driver': (context) => const DriverScreen(),
         },
       ),
     );

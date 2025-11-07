@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import '../providers/admin_provider.dart';
 import '../models/bus.dart';
+import '../widgets/osm_map_widget.dart';
 
 class RealtimeMapScreen extends StatefulWidget {
   const RealtimeMapScreen({super.key});
@@ -169,80 +170,44 @@ class _RealtimeMapScreenState extends State<RealtimeMapScreen> {
   }
 
   Widget _buildVisualMap(List<BusLocation> buses) {
-    return Container(
-      color: Colors.grey[200],
-      child: Stack(
-        children: [
-          // Fondo del mapa
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.map, size: 100, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Mapa de Santiago',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[600],
-                  ),
+    if (buses.isEmpty) {
+      return Container(
+        color: Colors.grey[200],
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.map_outlined, size: 100, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'No hay buses para mostrar',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Vista de supervisión',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
+      );
+    }
 
-          // Buses en el mapa (posición relativa)
-          ...buses.map((bus) => Positioned(
-                left: _getRelativeX(bus.longitude, context),
-                top: _getRelativeY(bus.latitude, context),
-                child: GestureDetector(
-                  onTap: () => _showBusDetails(context, bus),
-                  child: Tooltip(
-                    message: 'Bus ${bus.busId} - ${bus.status}',
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(bus.status),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.directions_bus,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              )),
+    return Stack(
+      children: [
+        // Mapa de OpenStreetMap
+        OsmMapWidget(
+          buses: buses,
+          onBusTap: (bus) => _showBusDetails(context, bus),
+        ),
 
-          // Leyenda
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: _buildLegend(),
-          ),
-        ],
-      ),
+        // Leyenda flotante
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: _buildLegend(),
+        ),
+      ],
     );
   }
 
@@ -464,20 +429,5 @@ class _RealtimeMapScreenState extends State<RealtimeMapScreen> {
       default:
         return Colors.blue;
     }
-  }
-
-  double _getRelativeX(double longitude, BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width * 0.65;
-    const minLng = -75.0;
-    const maxLng = -65.0;
-    return ((longitude - minLng) / (maxLng - minLng)) * screenWidth;
-  }
-
-  double _getRelativeY(double latitude, BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height - 100;
-    const minLat = -35.0;
-    const maxLat = -30.0;
-    return screenHeight -
-        (((latitude - minLat) / (maxLat - minLat)) * screenHeight);
   }
 }

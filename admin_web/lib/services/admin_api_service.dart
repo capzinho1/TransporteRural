@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
+import '../models/notificacion.dart';
 
 class AdminApiService {
   static const String baseUrl = 'http://localhost:3000/api';
@@ -76,6 +77,27 @@ class AdminApiService {
         return BusLocation.fromJson(data['data']);
       } else {
         throw Exception('Error al actualizar bus');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  // Método para actualizar bus con datos explícitos (útil para remover route_id)
+  Future<BusLocation> updateBusLocationDirect(int id, Map<String, dynamic> updateData) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/bus-locations/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(updateData),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return BusLocation.fromJson(data['data']);
+      } else {
+        final errorBody = response.body;
+        throw Exception('Error al actualizar bus: $errorBody');
       }
     } catch (e) {
       throw Exception('Error: $e');
@@ -228,6 +250,57 @@ class AdminApiService {
 
       if (response.statusCode != 200) {
         throw Exception('Error al eliminar usuario');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  // === NOTIFICACIONES ===
+  Future<List<Notificacion>> getNotifications() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/notifications'));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> notificationsData = data['data'] ?? [];
+        return notificationsData
+            .map((json) => Notificacion.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Error al obtener notificaciones');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Notificacion> createNotification({
+    required String title,
+    required String message,
+    required String type,
+    String? targetId,
+    int? createdBy,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/notifications'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'title': title,
+          'message': message,
+          'type': type,
+          'targetId': targetId,
+          'createdBy': createdBy,
+        }),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Notificacion.fromJson(data['data']);
+      } else {
+        final errorBody = response.body;
+        throw Exception('Error al crear notificación: $errorBody');
       }
     } catch (e) {
       throw Exception('Error: $e');

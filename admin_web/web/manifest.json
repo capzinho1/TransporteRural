@@ -1,11 +1,11 @@
 {
-    "name": "TransporteRural Admin",
-    "short_name": "TRAdmin",
+    "name": "GeoRu - Panel Administrativo",
+    "short_name": "GeoRu Admin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Panel Administrativo para TransporteRural",
+    "background_color": "#7B1FA2",
+    "theme_color": "#7B1FA2",
+    "description": "Panel Administrativo GeoRu - Gestión de transporte rural en tiempo real",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

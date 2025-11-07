@@ -20,12 +20,14 @@ app.use(express.urlencoded({ extended: true }));
 const rutasRoutes = require('./routes/rutas');
 const busesRoutes = require('./routes/buses');
 const usuariosRoutes = require('./routes/usuarios');
+const notificationsRoutes = require('./routes/notifications');
 const recorridosRoutes = require('./routes/recorridos');
 
 // Rutas de la API
 app.use('/api/routes', rutasRoutes);
 app.use('/api/bus-locations', busesRoutes);
 app.use('/api/users', usuariosRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Ruta de salud
 app.get('/health', (req, res) => {

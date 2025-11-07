@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
+import '../models/notificacion.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:3000/api';
@@ -153,6 +154,36 @@ class ApiService {
 
   Future<void> deleteUsuario(int id) async {
     await _makeRequest('DELETE', '/users/$id');
+  }
+
+  // === NOTIFICACIONES ===
+  Future<List<Notificacion>> getNotifications({
+    int? driverId,
+    String? routeId,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (driverId != null) queryParams['driverId'] = driverId.toString();
+      if (routeId != null) queryParams['routeId'] = routeId;
+      
+      final uri = Uri.parse('$baseUrl/notifications').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+      
+      final response = await http.get(uri, headers: _headers);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> notificationsData = data['data'] ?? [];
+        return notificationsData
+            .map((json) => Notificacion.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Error al obtener notificaciones');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
   }
 
   // === HEALTH CHECK ===

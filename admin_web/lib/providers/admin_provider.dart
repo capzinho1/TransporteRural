@@ -6,6 +6,9 @@ import '../services/admin_api_service.dart';
 
 class AdminProvider extends ChangeNotifier {
   final AdminApiService _apiService = AdminApiService();
+  
+  // Getter para acceder al ApiService desde fuera
+  AdminApiService get apiService => _apiService;
 
   // Estado
   bool _isLoading = false;
@@ -36,6 +39,11 @@ class AdminProvider extends ChangeNotifier {
 
   void _setError(String? value) {
     _error = value;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _error = null;
     notifyListeners();
   }
 
@@ -90,6 +98,17 @@ class AdminProvider extends ChangeNotifier {
     } catch (e) {
       _setError('Error al cargar buses: $e');
       _setLoading(false);
+    }
+  }
+
+  // Método para actualizar buses sin activar loading (útil para actualizaciones silenciosas)
+  Future<void> refreshBusesSilently() async {
+    try {
+      _buses = await _apiService.getBusLocations();
+      notifyListeners();
+    } catch (e) {
+      print('⚠️ Error al refrescar buses silenciosamente: $e');
+      // No establecer error para no interrumpir la UI
     }
   }
 
@@ -254,8 +273,31 @@ class AdminProvider extends ChangeNotifier {
   Future<bool> deleteUsuario(int id) async {
     try {
       _setLoading(true);
+      
+      // IMPORTANTE: Antes de eliminar el usuario, remover todas sus asignaciones de rutas
+      // Buscar todos los buses que tengan este conductor asignado
+      final busesWithThisDriver = _buses.where((b) => b.driverId == id).toList();
+      
+      // Remover la asignación de ruta de todos los buses de este conductor
+      for (final bus in busesWithThisDriver) {
+        if (bus.id != null && bus.routeId != null) {
+          try {
+            final updatedBus = bus.copyWith(routeId: null);
+            await _apiService.updateBusLocation(bus.id!, updatedBus);
+            print('✅ Ruta removida del bus ${bus.id} antes de eliminar conductor $id');
+          } catch (e) {
+            print('⚠️ Error al remover ruta del bus ${bus.id}: $e');
+          }
+        }
+      }
+      
+      // Ahora eliminar el usuario
       await _apiService.deleteUsuario(id);
       _usuarios.removeWhere((u) => u.id == id);
+      
+      // Actualizar la lista de buses para reflejar los cambios
+      await refreshBusesSilently();
+      
       _setLoading(false);
       notifyListeners();
       return true;

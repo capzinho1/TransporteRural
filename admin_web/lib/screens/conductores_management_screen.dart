@@ -492,6 +492,7 @@ class _ConductoresManagementScreenState
         title: const Text('Confirmar Eliminación'),
         content: Text(
           '¿Estás seguro de eliminar al conductor ${conductor.name}?\n\n'
+          'Se removerán automáticamente todas sus asignaciones de rutas.\n\n'
           'Esta acción no se puede deshacer.',
         ),
         actions: [
@@ -503,14 +504,34 @@ class _ConductoresManagementScreenState
             onPressed: () async {
               final adminProvider =
                   Provider.of<AdminProvider>(context, listen: false);
+              
+              // Cerrar el diálogo primero
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+              
               final success = await adminProvider.deleteUsuario(conductor.id);
 
               if (success && context.mounted) {
-                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Conductor eliminado exitosamente'),
+                  SnackBar(
+                    content: Text(
+                      'Conductor ${conductor.name} eliminado exitosamente.\n'
+                      'Todas sus asignaciones de rutas han sido removidas.',
+                    ),
                     backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+                
+                // Recargar datos para actualizar la vista
+                await adminProvider.loadBuses();
+                await adminProvider.loadUsuarios();
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al eliminar conductor: ${adminProvider.error ?? "Error desconocido"}'),
+                    backgroundColor: Colors.red,
                   ),
                 );
               }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
+import '../models/notificacion.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -13,16 +14,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _messageController = TextEditingController();
-  String _selectedType = 'global';
+  String _selectedType = 'drivers'; // Cambiar default a 'drivers' ya que solo es para conductores
   String? _selectedRoute;
-
-  final List<Map<String, dynamic>> _sentNotifications = [];
+  int? _selectedDriverId;
+  List<Notificacion> _notifications = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AdminProvider>(context, listen: false).loadRutas();
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      adminProvider.loadRutas();
+      adminProvider.loadUsuarios();
+      _loadNotifications();
     });
   }
 
@@ -31,6 +36,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _titleController.dispose();
     _messageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      final notifications = await adminProvider.apiService.getNotifications();
+      
+      if (mounted) {
+        setState(() {
+          _notifications = notifications;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar notificaciones: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -94,9 +129,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               SegmentedButton<String>(
                                 segments: const [
                                   ButtonSegment(
-                                    value: 'global',
-                                    label: Text('Global'),
-                                    icon: Icon(Icons.public, size: 16),
+                                    value: 'drivers',
+                                    label: Text('Todos los Conductores'),
+                                    icon: Icon(Icons.drive_eta, size: 16),
                                   ),
                                   ButtonSegment(
                                     value: 'route',
@@ -104,9 +139,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     icon: Icon(Icons.route, size: 16),
                                   ),
                                   ButtonSegment(
-                                    value: 'drivers',
-                                    label: Text('Conductores'),
-                                    icon: Icon(Icons.drive_eta, size: 16),
+                                    value: 'driver',
+                                    label: Text('Conductor Específico'),
+                                    icon: Icon(Icons.person, size: 16),
                                   ),
                                 ],
                                 selected: {_selectedType},
@@ -114,6 +149,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   setState(() {
                                     _selectedType = newSelection.first;
                                     _selectedRoute = null;
+                                    _selectedDriverId = null;
                                   });
                                 },
                               ),
@@ -141,8 +177,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     });
                                   },
                                   validator: (value) {
-                                    if (value == null) {
+                                    if (_selectedType == 'route' && value == null) {
                                       return 'Selecciona una ruta';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Selector de conductor (si es conductor específico)
+                              if (_selectedType == 'driver') ...[
+                                DropdownButtonFormField<int>(
+                                  value: _selectedDriverId,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Seleccionar Conductor',
+                                    prefixIcon: Icon(Icons.person),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: adminProvider.usuarios
+                                      .where((u) => u.role == 'driver')
+                                      .map((driver) => DropdownMenuItem(
+                                            value: driver.id,
+                                            child: Text('${driver.name} (${driver.email})'),
+                                          ))
+                                      .toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedDriverId = value;
+                                    });
+                                  },
+                                  validator: (value) {
+                                    if (_selectedType == 'driver' && value == null) {
+                                      return 'Selecciona un conductor';
                                     }
                                     return null;
                                   },
@@ -203,9 +270,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      onPressed: _sendNotification,
-                                      icon: const Icon(Icons.send),
-                                      label: const Text('Enviar'),
+                                      onPressed: _isLoading ? null : _sendNotification,
+                                      icon: _isLoading
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
+                                              ),
+                                            )
+                                          : const Icon(Icons.send),
+                                      label: Text(_isLoading ? 'Enviando...' : 'Enviar'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue,
                                         foregroundColor: Colors.white,
@@ -337,16 +415,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               const SizedBox(height: 32),
 
               // Historial de notificaciones
-              const Text(
-                'Historial de Notificaciones',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Historial de Notificaciones',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: _loadNotifications,
+                    tooltip: 'Actualizar',
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
-              if (_sentNotifications.isEmpty)
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (_notifications.isEmpty)
                 Card(
                   elevation: 2,
                   child: Padding(
@@ -372,43 +462,47 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   child: ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _sentNotifications.length,
+                    itemCount: _notifications.length,
                     separatorBuilder: (context, index) => const Divider(),
                     itemBuilder: (context, index) {
-                      final notification = _sentNotifications[
-                          _sentNotifications.length - 1 - index];
+                      final notification = _notifications[index];
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: Colors.blue[100],
                           child: Icon(
-                            _getTypeIconForNotification(notification['type']),
+                            _getTypeIconForNotification(notification.type),
                             color: Colors.blue,
                           ),
                         ),
                         title: Text(
-                          notification['title'],
+                          notification.title,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(notification['message']),
+                            Text(notification.message),
                             const SizedBox(height: 4),
-                            Text(
-                              notification['timestamp'],
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
+                            Row(
+                              children: [
+                                Chip(
+                                  label: Text(
+                                    _getTypeLabelForNotification(notification.type),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  backgroundColor: Colors.blue[100],
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _formatDate(notification.sentAt),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                        trailing: Chip(
-                          label: Text(
-                            _getTypeLabelForNotification(notification['type']),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          backgroundColor: Colors.blue[100],
                         ),
                       );
                     },
@@ -423,27 +517,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _getTypeIcon() {
     switch (_selectedType) {
-      case 'global':
-        return Icons.public;
-      case 'route':
-        return Icons.route;
       case 'drivers':
         return Icons.drive_eta;
+      case 'route':
+        return Icons.route;
+      case 'driver':
+        return Icons.person;
       default:
         return Icons.notifications;
     }
   }
 
   String _getTypeLabel() {
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
     switch (_selectedType) {
-      case 'global':
-        return 'Notificación Global';
-      case 'route':
-        return _selectedRoute != null
-            ? 'Ruta: $_selectedRoute'
-            : 'Notificación por Ruta';
       case 'drivers':
-        return 'Para Conductores';
+        return 'Para Todos los Conductores';
+      case 'route':
+        if (_selectedRoute != null) {
+          try {
+            final route = adminProvider.rutas.firstWhere((r) => r.routeId == _selectedRoute);
+            return 'Ruta: ${route.name}';
+          } catch (e) {
+            return 'Notificación por Ruta';
+          }
+        }
+        return 'Notificación por Ruta';
+      case 'driver':
+        if (_selectedDriverId != null) {
+          try {
+            final driver = adminProvider.usuarios.firstWhere((u) => u.id == _selectedDriverId);
+            return 'Conductor: ${driver.name}';
+          } catch (e) {
+            return 'Conductor Específico';
+          }
+        }
+        return 'Conductor Específico';
       default:
         return 'Notificación';
     }
@@ -451,12 +560,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _getTypeIconForNotification(String type) {
     switch (type) {
-      case 'global':
-        return Icons.public;
-      case 'route':
-        return Icons.route;
       case 'drivers':
         return Icons.drive_eta;
+      case 'route':
+        return Icons.route;
+      case 'driver':
+        return Icons.person;
       default:
         return Icons.notifications;
     }
@@ -464,38 +573,86 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _getTypeLabelForNotification(String type) {
     switch (type) {
-      case 'global':
-        return 'Global';
+      case 'drivers':
+        return 'Todos los Conductores';
       case 'route':
         return 'Por Ruta';
-      case 'drivers':
-        return 'Conductores';
+      case 'driver':
+        return 'Conductor Específico';
       default:
         return 'Desconocido';
     }
   }
 
-  void _sendNotification() {
+  Future<void> _sendNotification() async {
     if (_formKey.currentState!.validate()) {
+      // Validar que si es tipo 'route' o 'driver', tenga seleccionado el target
+      if (_selectedType == 'route' && _selectedRoute == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Debes seleccionar una ruta'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      if (_selectedType == 'driver' && _selectedDriverId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Debes seleccionar un conductor'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
       setState(() {
-        _sentNotifications.add({
-          'title': _titleController.text,
-          'message': _messageController.text,
-          'type': _selectedType,
-          'route': _selectedRoute,
-          'timestamp': DateTime.now().toString().substring(0, 16),
-        });
+        _isLoading = true;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Notificación enviada exitosamente'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      try {
+        final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+        final createdBy = adminProvider.currentUser?.id;
+        
+        await adminProvider.apiService.createNotification(
+          title: _titleController.text,
+          message: _messageController.text,
+          type: _selectedType,
+          targetId: _selectedType == 'route' 
+              ? _selectedRoute 
+              : (_selectedType == 'driver' ? _selectedDriverId.toString() : null),
+          createdBy: createdBy,
+        );
 
-      _clearForm();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notificación enviada exitosamente'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          _clearForm();
+          _loadNotifications();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al enviar notificación: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -503,8 +660,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _titleController.clear();
     _messageController.clear();
     setState(() {
-      _selectedType = 'global';
+      _selectedType = 'drivers';
       _selectedRoute = null;
+      _selectedDriverId = null;
     });
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays > 0) {
+      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inMinutes > 0) {
+      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+    } else {
+      return 'Hace unos momentos';
+    }
   }
 }

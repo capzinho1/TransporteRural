@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import '../widgets/georu_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -74,44 +75,20 @@ class _SplashScreenState extends State<SplashScreen>
                     scale: _scaleAnimation,
                     child: Column(
                       children: [
-                        // Logo de la app
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.directions_bus,
-                            size: 60,
-                            color: Color(0xFF2E7D32),
-                          ),
+                        // Logo GeoRu
+                        const GeoRuLogo(
+                          size: 120,
+                          showText: false,
+                          showBackground: true,
+                          backgroundColor: Colors.white,
                         ),
                         const SizedBox(height: 30),
 
-                        // Título de la app
-                        const Text(
-                          'Transporte Rural',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
-                        // Subtítulo
-                        const Text(
-                          'Localiza buses en tiempo real',
-                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        // Título de la app con logo GeoRu
+                        const GeoRuLogo(
+                          size: 0,
+                          showText: true,
+                          showSlogan: true,
                         ),
                       ],
                     ),

@@ -375,16 +375,103 @@ Para soporte técnico o preguntas:
 
 **TransporteRural** - Conectando comunidades rurales 🚌✨
 
+## 📝 Orden de Ejecución
 
+### Método 1: Con Docker Compose (Recomendado)
 
+**Paso 1: Configurar variables de entorno**
+```bash
+# Copiar archivo de ejemplo
+cp env.example .env
 
-Terminal 1 - Backend:
+# Editar variables según necesidad
+nano .env
+```
 
+**Paso 2: Levantar servicios (orden automático)**
+```bash
+# Docker Compose maneja el orden automáticamente:
+# 1. Base de datos (db) - se inicia primero
+# 2. Backend - espera a que db esté saludable
+# 3. Flutter - espera a que backend esté listo
+# 4. Nginx (opcional) - espera a backend y flutter
+
+docker-compose up -d
+
+# Ver logs para verificar el orden
+docker-compose logs -f
+```
+
+**Orden de inicio automático:**
+1. ✅ **Base de Datos** (`db`) - Puerto 5432
+2. ✅ **Backend API** (`backend`) - Puerto 3000 (depende de `db`)
+3. ✅ **App Flutter** (`flutter`) - Puerto 8080 (depende de `backend`)
+4. ⚙️ **Nginx** (`nginx`) - Puerto 80/443 (solo en producción)
+
+---
+
+### Método 2: Sin Docker (Desarrollo Manual)
+
+**⚠️ Requisito previo:** Configurar Supabase según `SETUP.md`
+
+**Terminal 1 - Backend:**
+```bash
 cd backend
 npm install
 npm run dev
+```
+Espera ver: `🚌 TransporteRural API ejecutándose en puerto 3000`
 
- Terminal 2 - Flutter:
-
- cd mobile
+**Terminal 2 - App Móvil (Flutter):**
+```bash
+cd mobile
+flutter pub get
 flutter run -d chrome --web-port 8080
+```
+
+**Terminal 3 - Panel Administrativo (Opcional):**
+```bash
+cd admin_web
+flutter pub get
+flutter run -d chrome --web-port 8081
+```
+
+**Orden de ejecución manual:**
+1. ✅ **Backend** (Terminal 1) - Debe estar corriendo primero
+2. ✅ **App Móvil** (Terminal 2) - Se conecta al backend
+3. ✅ **Panel Admin** (Terminal 3) - Opcional, también se conecta al backend
+
+---
+
+### Verificación del Orden Correcto
+
+**1. Verificar Backend:**
+```bash
+curl http://localhost:3000/health
+```
+Respuesta esperada: `{"status":"OK"}`
+
+**2. Verificar App Móvil:**
+- Abrir: http://localhost:8080
+- Debe cargar la pantalla de login
+
+**3. Verificar Panel Admin:**
+- Abrir: http://localhost:8081
+- Debe cargar la pantalla de login admin
+
+---
+
+### Solución de Problemas de Orden
+
+**Si el backend no inicia:**
+- Verificar que Supabase esté configurado (ver `SETUP.md`)
+- Verificar archivo `backend/.env` existe y tiene las credenciales correctas
+
+**Si Flutter no se conecta:**
+- Verificar que el backend esté corriendo en `http://localhost:3000`
+- Revisar logs: `docker-compose logs backend` o consola de Terminal 1
+
+**Si hay errores de dependencias:**
+- Backend: `cd backend && npm install`
+- Flutter: `cd mobile && flutter pub get`
+- Admin: `cd admin_web && flutter pub get`

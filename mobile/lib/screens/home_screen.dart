@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/bus_card.dart';
 import '../widgets/ruta_card.dart';
+import '../widgets/georu_logo.dart';
 import '../widgets/visual_map_widget.dart';
 import 'map_screen.dart';
 
@@ -21,7 +22,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     // initialIndex: 2 para que inicie en la pestaña del Mapa
     _tabController = TabController(length: 3, vsync: this, initialIndex: 2);
-    _loadInitialData();
+    // Cargar datos después del primer frame para evitar setState durante build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
   }
 
   @override
@@ -39,7 +43,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transporte Rural'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const GeoRuLogo(
+              size: 28,
+              showText: false,
+              showSlogan: false,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'GeoRu',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

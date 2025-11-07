@@ -37,15 +37,18 @@ class _VisualMapWidgetState extends State<VisualMapWidget> {
                   children: [
                     Icon(Icons.map, color: Colors.blue[700]),
                     const SizedBox(width: 8),
-                    Text(
-                      'Mapa Visual de Buses',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
+                    Expanded(
+                      child: Text(
+                        'Mapa Visual de Buses',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Text(
                       '${appProvider.busLocations.length} buses',
                       style: TextStyle(
@@ -130,7 +133,7 @@ class _VisualMapWidgetState extends State<VisualMapWidget> {
                   ),
 
                   // Marcadores de buses
-                  ...buses.map((bus) => _buildBusMarker(bus)).toList(),
+                  ...buses.map((bus) => _buildBusMarker(bus)),
                 ],
               ),
             ),
@@ -310,7 +313,7 @@ class _VisualMapWidgetState extends State<VisualMapWidget> {
   }
 
   Widget _buildBusList(List<BusLocation> buses) {
-    return Container(
+    return SizedBox(
       height: 120,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
