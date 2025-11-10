@@ -101,7 +101,7 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStateProperty.all(Colors.grey[200]),
+        headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
         columns: const [
           DataColumn(label: Text('ID Bus')),
           DataColumn(label: Text('Ruta')),
@@ -177,156 +177,200 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
   }
 
   void _showBusDialog(BuildContext context, BusLocation? bus) {
-    final busIdController = TextEditingController(text: bus?.busId ?? '');
-    final routeIdController = TextEditingController(text: bus?.routeId ?? '');
-    final driverIdController =
-        TextEditingController(text: bus?.driverId?.toString() ?? '');
-    final latitudeController =
-        TextEditingController(text: bus?.latitude.toString() ?? '-33.4489');
-    final longitudeController =
-        TextEditingController(text: bus?.longitude.toString() ?? '-70.6693');
+    final patenteController = TextEditingController(text: bus?.busId ?? '');
+
+    // Variables de estado que se mantendrán durante la vida del diálogo
     String selectedStatus = bus?.status ?? 'inactive';
+    int? selectedDriverId = bus?.driverId;
+
+    // Cargar usuarios (conductores) si no están cargados
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    if (adminProvider.usuarios.isEmpty) {
+      adminProvider.loadUsuarios();
+    }
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(bus == null ? 'Agregar Bus' : 'Editar Bus'),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: busIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'ID del Bus *',
-                    hintText: 'BUS001',
-                    prefixIcon: Icon(Icons.directions_bus),
+      builder: (context) => Consumer<AdminProvider>(
+        builder: (context, provider, child) {
+          // Filtrar solo conductores
+          final conductores =
+              provider.usuarios.where((u) => u.role == 'driver').toList();
+
+          return StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: Text(bus == null ? 'Agregar Bus' : 'Editar Bus'),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 400,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: patenteController,
+                        decoration: const InputDecoration(
+                          labelText: 'Patente *',
+                          hintText: 'ABC1234',
+                          prefixIcon: Icon(Icons.directions_bus),
+                          helperText: 'Ingresa la patente del bus',
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<int?>(
+                        value: selectedDriverId,
+                        decoration: const InputDecoration(
+                          labelText: 'Conductor',
+                          prefixIcon: Icon(Icons.person),
+                          helperText: 'Selecciona un conductor (opcional)',
+                        ),
+                        items: [
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Sin conductor asignado'),
+                          ),
+                          ...conductores.map((conductor) {
+                            return DropdownMenuItem<int?>(
+                              value: conductor.id,
+                              child: Text(
+                                  '${conductor.name} (${conductor.email})'),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) {
+                          selectedDriverId = value;
+                          setState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedStatus,
+                        decoration: const InputDecoration(
+                          labelText: 'Estado *',
+                          prefixIcon: Icon(Icons.info),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'active', child: Text('Activo')),
+                          DropdownMenuItem(
+                              value: 'inactive', child: Text('Inactivo')),
+                          DropdownMenuItem(
+                              value: 'maintenance',
+                              child: Text('Mantenimiento')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            selectedStatus = value;
+                            setState(() {});
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      if (conductores.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'No hay conductores registrados. Agrega conductores en "Gestión de Conductores".',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[700],
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      else
+                        const Text(
+                          'Nota: La ruta y ubicación se asignarán automáticamente cuando el bus esté en uso.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: routeIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'ID de Ruta *',
-                    hintText: 'R001',
-                    prefixIcon: Icon(Icons.route),
-                  ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: driverIdController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'ID del Conductor',
-                    hintText: '1',
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: latitudeController,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Latitud *',
-                    hintText: '-33.4489',
-                    prefixIcon: Icon(Icons.location_on),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: longitudeController,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Longitud *',
-                    hintText: '-70.6693',
-                    prefixIcon: Icon(Icons.location_on),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'Estado *',
-                    prefixIcon: Icon(Icons.info),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'active', child: Text('Activo')),
-                    DropdownMenuItem(
-                        value: 'inactive', child: Text('Inactivo')),
-                    DropdownMenuItem(
-                        value: 'maintenance', child: Text('Mantenimiento')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      selectedStatus = value;
+                ElevatedButton(
+                  onPressed: () async {
+                    // Validar que la patente no esté vacía
+                    if (patenteController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Por favor ingresa la patente del bus'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Crear el bus con valores por defecto
+                    // route_id será null (se asignará después)
+                    // latitude y longitude serán 0.0 (se actualizarán cuando el bus esté en ruta)
+                    final newBus = BusLocation(
+                      id: bus?.id,
+                      busId: patenteController.text.trim().toUpperCase(),
+                      routeId: bus
+                          ?.routeId, // Mantener route_id al editar, null al crear
+                      driverId:
+                          selectedDriverId, // ID del conductor seleccionado (puede ser null)
+                      latitude: bus?.latitude ??
+                          0.0, // Mantener lat al editar, 0.0 al crear
+                      longitude: bus?.longitude ??
+                          0.0, // Mantener lng al editar, 0.0 al crear
+                      status: selectedStatus,
+                      companyId:
+                          bus?.companyId, // Mantener company_id si existe
+                    );
+
+                    final provider =
+                        Provider.of<AdminProvider>(context, listen: false);
+                    bool success;
+
+                    if (bus == null) {
+                      success = await provider.createBus(newBus);
+                    } else {
+                      success = await provider.updateBus(bus.id!, newBus);
+                    }
+
+                    if (success && context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            bus == null
+                                ? 'Bus agregado exitosamente'
+                                : 'Bus actualizado exitosamente',
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else if (context.mounted) {
+                      // Mostrar error si falla
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            provider.error ??
+                                'Error al ${bus == null ? 'agregar' : 'actualizar'} el bus',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
                     }
                   },
+                  child: Text(bus == null ? 'Agregar' : 'Actualizar'),
                 ),
               ],
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (busIdController.text.isEmpty ||
-                  routeIdController.text.isEmpty ||
-                  latitudeController.text.isEmpty ||
-                  longitudeController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Por favor completa los campos obligatorios'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              final newBus = BusLocation(
-                id: bus?.id,
-                busId: busIdController.text,
-                routeId: routeIdController.text,
-                driverId: driverIdController.text.isEmpty
-                    ? null
-                    : int.tryParse(driverIdController.text),
-                latitude: double.parse(latitudeController.text),
-                longitude: double.parse(longitudeController.text),
-                status: selectedStatus,
-              );
-
-              final adminProvider =
-                  Provider.of<AdminProvider>(context, listen: false);
-              bool success;
-
-              if (bus == null) {
-                success = await adminProvider.createBus(newBus);
-              } else {
-                success = await adminProvider.updateBus(bus.id!, newBus);
-              }
-
-              if (success && context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      bus == null
-                          ? 'Bus agregado exitosamente'
-                          : 'Bus actualizado exitosamente',
-                    ),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-            },
-            child: Text(bus == null ? 'Agregar' : 'Actualizar'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

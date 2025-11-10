@@ -1,14 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const { supabase } = require('../config/supabase');
+const { addCompanyFilter } = require('../middleware/auth');
+
+// Helper para obtener usuario desde header o query
+const getUserFromRequest = async (req) => {
+  const userId = req.headers['x-user-id'] || req.query.user_id;
+  if (!userId) return null;
+  
+  const { data: user } = await supabase
+    .from('users')
+    .select('role, company_id')
+    .eq('id', userId)
+    .single();
+  
+  return user;
+};
 
 // GET /api/bus-locations - Obtener todas las ubicaciones de buses
 router.get('/', async (req, res) => {
   try {
-    const { data: busLocations, error } = await supabase
+    let query = supabase
       .from('bus_locations')
-      .select('*')
-      .order('last_update', { ascending: false });
+      .select('*');
+    
+    // Filtrar por empresa si es company_admin
+    const user = await getUserFromRequest(req);
+    if (user && user.role === 'company_admin' && user.company_id) {
+      query = query.eq('company_id', user.company_id);
+    }
+    
+    query = query.order('last_update', { ascending: false });
+    
+    const { data: busLocations, error } = await query;
     
     if (error) {
       console.error('❌ Error Supabase al obtener buses:', error);
@@ -67,7 +91,14 @@ router.get('/:id', async (req, res) => {
 // POST /api/bus-locations - Crear nuevo bus
 router.post('/', async (req, res) => {
   try {
-    const { bus_id, route_id, driver_id, latitude, longitude, status } = req.body;
+    const { bus_id, route_id, driver_id, latitude, longitude, status, company_id } = req.body;
+    
+    // Obtener usuario y asignar company_id automáticamente si es company_admin
+    const user = await getUserFromRequest(req);
+    let finalCompanyId = company_id;
+    if (!finalCompanyId && user && user.role === 'company_admin' && user.company_id) {
+      finalCompanyId = user.company_id;
+    }
     
     const { data: nuevoBus, error } = await supabase
       .from('bus_locations')
@@ -79,6 +110,7 @@ router.post('/', async (req, res) => {
           latitude,
           longitude,
           status: status || 'inactive',
+          company_id: finalCompanyId || null,
           last_update: new Date().toISOString()
         }
       ])
@@ -106,6 +138,23 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { bus_id, route_id, driver_id, latitude, longitude, status } = req.body;
+    
+    // Verificar permisos: company_admin solo puede modificar buses de su empresa
+    const user = await getUserFromRequest(req);
+    if (user && user.role === 'company_admin' && user.company_id) {
+      const { data: existingBus } = await supabase
+        .from('bus_locations')
+        .select('company_id')
+        .eq('id', id)
+        .single();
+      
+      if (existingBus && existingBus.company_id !== user.company_id) {
+        return res.status(403).json({
+          success: false,
+          error: 'No tienes permisos para modificar este bus'
+        });
+      }
+    }
     
     const updateData = { last_update: new Date().toISOString() };
     if (bus_id !== undefined) updateData.bus_id = bus_id;

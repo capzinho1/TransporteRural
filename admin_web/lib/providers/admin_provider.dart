@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
+import '../models/empresa.dart';
 import '../services/admin_api_service.dart';
 
 class AdminProvider extends ChangeNotifier {
@@ -19,6 +20,7 @@ class AdminProvider extends ChangeNotifier {
   List<BusLocation> _buses = [];
   List<Ruta> _rutas = [];
   List<Usuario> _usuarios = [];
+  List<Empresa> _empresas = [];
   Map<String, dynamic> _estadisticas = {};
 
   // Getters
@@ -29,6 +31,7 @@ class AdminProvider extends ChangeNotifier {
   List<BusLocation> get busLocations => _buses; // Alias para compatibilidad
   List<Ruta> get rutas => _rutas;
   List<Usuario> get usuarios => _usuarios;
+  List<Empresa> get empresas => _empresas;
   Map<String, dynamic> get estadisticas => _estadisticas;
 
   // Setters privados
@@ -58,13 +61,16 @@ class AdminProvider extends ChangeNotifier {
       if (response['usuario'] != null) {
         _currentUser = Usuario.fromJson(response['usuario']);
 
-        // Verificar que sea administrador
-        if (_currentUser!.role != 'admin') {
+        // Verificar que sea administrador (super_admin o company_admin)
+        if (_currentUser!.role != 'super_admin' && _currentUser!.role != 'company_admin') {
           _setError('No tienes permisos de administrador');
           _currentUser = null;
           _setLoading(false);
           return false;
         }
+
+        // Establecer user_id en el ApiService para filtrado automático
+        _apiService.setCurrentUserId(_currentUser!.id);
 
         _setLoading(false);
         return true;
@@ -82,9 +88,11 @@ class AdminProvider extends ChangeNotifier {
 
   void logout() {
     _currentUser = null;
+    _apiService.setCurrentUserId(null); // Limpiar el user_id del ApiService
     _buses = [];
     _rutas = [];
     _usuarios = [];
+    _empresas = [];
     _estadisticas = {};
     notifyListeners();
   }
@@ -120,14 +128,17 @@ class AdminProvider extends ChangeNotifier {
   Future<bool> createBus(BusLocation bus) async {
     try {
       _setLoading(true);
+      _setError(null); // Limpiar errores previos
       final newBus = await _apiService.createBusLocation(bus);
       _buses.add(newBus);
+      await loadBuses(); // Recargar la lista para asegurar sincronización
       _setLoading(false);
       notifyListeners();
       return true;
     } catch (e) {
-      _setError('Error al crear bus: $e');
+      _setError('Error al crear bus: ${e.toString()}');
       _setLoading(false);
+      notifyListeners();
       return false;
     }
   }
@@ -169,25 +180,39 @@ class AdminProvider extends ChangeNotifier {
   Future<void> loadRutas() async {
     try {
       _setLoading(true);
-      _rutas = await _apiService.getRutas();
+      final rutasCargadas = await _apiService.getRutas();
+      _rutas = rutasCargadas;
+      print('✅ Rutas cargadas: ${_rutas.length}');
       _setLoading(false);
+      notifyListeners();
     } catch (e) {
+      print('❌ Error al cargar rutas: $e');
       _setError('Error al cargar rutas: $e');
       _setLoading(false);
+      notifyListeners();
     }
   }
 
   Future<bool> createRuta(Ruta ruta) async {
     try {
       _setLoading(true);
-      final newRuta = await _apiService.createRuta(ruta);
-      _rutas.add(newRuta);
+      _setError(null);
+      
+      // Crear la ruta en el servidor
+      await _apiService.createRuta(ruta);
+      
+      // Recargar la lista completa desde el servidor para asegurar sincronización
+      // Esto es importante porque el backend puede haber asignado company_id automáticamente
+      await loadRutas();
+      
       _setLoading(false);
       notifyListeners();
       return true;
     } catch (e) {
-      _setError('Error al crear ruta: $e');
+      print('❌ Error al crear ruta en provider: $e');
+      _setError('Error al crear ruta: ${e.toString()}');
       _setLoading(false);
+      notifyListeners();
       return false;
     }
   }
@@ -238,16 +263,23 @@ class AdminProvider extends ChangeNotifier {
   }
 
   Future<bool> createUsuario(Usuario usuario) async {
+    return createUsuarioWithData(usuario.toJson());
+  }
+  
+  Future<bool> createUsuarioWithData(Map<String, dynamic> usuarioData) async {
     try {
       _setLoading(true);
-      final newUsuario = await _apiService.createUsuario(usuario);
-      _usuarios.add(newUsuario);
+      _setError(null); // Limpiar errores previos
+      await _apiService.createUsuarioWithData(usuarioData);
+      // Recargar la lista completa para asegurar que se muestren todos los usuarios
+      await loadUsuarios();
       _setLoading(false);
       notifyListeners();
       return true;
     } catch (e) {
-      _setError('Error al crear usuario: $e');
+      _setError('Error al crear usuario: ${e.toString()}');
       _setLoading(false);
+      notifyListeners();
       return false;
     }
   }
@@ -320,6 +352,66 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  // === EMPRESAS ===
+  Future<void> loadEmpresas() async {
+    try {
+      _setLoading(true);
+      _empresas = await _apiService.getEmpresas();
+      _setLoading(false);
+    } catch (e) {
+      _setError('Error al cargar empresas: $e');
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> createEmpresa(Empresa empresa) async {
+    try {
+      _setLoading(true);
+      final newEmpresa = await _apiService.createEmpresa(empresa);
+      _empresas.add(newEmpresa);
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Error al crear empresa: $e');
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> updateEmpresa(int id, Empresa empresa) async {
+    try {
+      _setLoading(true);
+      final updatedEmpresa = await _apiService.updateEmpresa(id, empresa);
+      final index = _empresas.indexWhere((e) => e.id == id);
+      if (index != -1) {
+        _empresas[index] = updatedEmpresa;
+      }
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Error al actualizar empresa: $e');
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  Future<bool> deleteEmpresa(int id) async {
+    try {
+      _setLoading(true);
+      await _apiService.deleteEmpresa(id);
+      _empresas.removeWhere((e) => e.id == id);
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Error al eliminar empresa: $e');
+      _setLoading(false);
+      return false;
+    }
+  }
+
   // === REFRESH ALL ===
   Future<void> refreshAllData() async {
     await Future.wait([
@@ -327,6 +419,7 @@ class AdminProvider extends ChangeNotifier {
       loadRutas(),
       loadUsuarios(),
       loadEstadisticas(),
+      if (_currentUser?.isSuperAdmin == true) loadEmpresas(),
     ]);
   }
 }

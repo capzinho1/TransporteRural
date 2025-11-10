@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
 import '../models/ruta.dart';
+import '../models/usuario.dart';
+import '../models/bus.dart';
 
 class RoutesManagementScreen extends StatefulWidget {
   const RoutesManagementScreen({super.key});
@@ -15,59 +17,132 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AdminProvider>(context, listen: false).loadRutas();
+      _loadData();
     });
+  }
+
+  Future<void> _loadData() async {
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    await Future.wait([
+      adminProvider.loadRutas(),
+      adminProvider.loadUsuarios(),
+      adminProvider.loadBuses(),
+    ]);
+  }
+
+  // Obtener conductor asignado a una ruta
+  Usuario? _getAssignedDriver(String routeId, AdminProvider provider) {
+    final bus = provider.buses.firstWhere(
+      (b) => b.routeId == routeId && b.driverId != null,
+      orElse: () => BusLocation(
+        busId: '',
+        latitude: 0,
+        longitude: 0,
+        status: 'inactive',
+      ),
+    );
+
+    if (bus.driverId != null) {
+      try {
+        return provider.usuarios.firstWhere(
+          (u) => u.id == bus.driverId && u.role == 'driver',
+        );
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // Obtener bus asignado a una ruta
+  BusLocation? _getAssignedBus(String routeId, AdminProvider provider) {
+    try {
+      return provider.buses.firstWhere(
+        (b) => b.routeId == routeId,
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Consumer<AdminProvider>(
-        builder: (context, adminProvider, child) {
-          if (adminProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return Consumer<AdminProvider>(
+      builder: (context, adminProvider, child) {
+        if (adminProvider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (adminProvider.rutas.isEmpty) {
-            return _buildEmptyState();
-          }
+        return RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Gestión de Rutas',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${adminProvider.rutas.length} rutas registradas',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              _showCreateRouteDialog(context, null, true),
+                          icon: const Icon(Icons.auto_awesome),
+                          label: const Text('Desde Plantilla'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.purple,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              _showCreateRouteDialog(context, null, false),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Nueva Ruta'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
 
-          return RefreshIndicator(
-            onRefresh: () => adminProvider.loadRutas(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Gestión de Rutas',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showRutaDialog(context, null),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Crear Ruta'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _buildRutasGrid(adminProvider.rutas),
-                ],
-              ),
+                const SizedBox(height: 24),
+
+                // Lista de rutas
+                if (adminProvider.rutas.isEmpty)
+                  _buildEmptyState()
+                else
+                  _buildRutasList(adminProvider),
+              ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -87,96 +162,220 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
             style: TextStyle(fontSize: 18, color: Colors.grey),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _showRutaDialog(context, null),
-            icon: const Icon(Icons.add),
-            label: const Text('Crear Primera Ruta'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _showCreateRouteDialog(context, null, true),
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Crear desde Plantilla'),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: () => _showCreateRouteDialog(context, null, false),
+                icon: const Icon(Icons.add),
+                label: const Text('Crear Ruta Manual'),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRutasGrid(List<Ruta> rutas) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: rutas.map((ruta) => _buildRutaCard(ruta)).toList(),
+  Widget _buildRutasList(AdminProvider adminProvider) {
+    return Column(
+      children: adminProvider.rutas.map((ruta) {
+        final assignedDriver = _getAssignedDriver(ruta.routeId, adminProvider);
+        final assignedBus = _getAssignedBus(ruta.routeId, adminProvider);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header de la ruta
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                ruta.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Chip(
+                                label: Text(
+                                  ruta.routeId,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                backgroundColor: Colors.purple[100],
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.schedule,
+                                  size: 16, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                ruta.schedule,
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              const SizedBox(width: 16),
+                              const Icon(Icons.location_on,
+                                  size: 16, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${ruta.stops.length} paradas',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Estado activo/inactivo
+                    if (ruta.active != null)
+                      Chip(
+                        label: Text(ruta.active! ? 'Activa' : 'Inactiva'),
+                        backgroundColor:
+                            ruta.active! ? Colors.green[100] : Colors.grey[200],
+                        labelStyle: TextStyle(
+                          color: ruta.active!
+                              ? Colors.green[800]
+                              : Colors.grey[800],
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+                const Divider(),
+
+                // Asignaciones
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildAssignmentChip(
+                        'Conductor',
+                        assignedDriver?.name ?? 'Sin asignar',
+                        assignedDriver != null ? Colors.green : Colors.grey,
+                        Icons.person,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildAssignmentChip(
+                        'Bus',
+                        assignedBus?.busId ?? 'Sin asignar',
+                        assignedBus != null ? Colors.blue : Colors.grey,
+                        Icons.directions_bus,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Acciones
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _showRouteDetails(context, ruta),
+                      icon: const Icon(Icons.info_outline, size: 18),
+                      label: const Text('Detalles'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () =>
+                          _showAssignmentDialog(context, ruta, adminProvider),
+                      icon: const Icon(Icons.assignment, size: 18),
+                      label: const Text('Asignar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () =>
+                          _showCreateRouteDialog(context, ruta, false),
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Editar'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _confirmDelete(context, ruta),
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Eliminar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildRutaCard(Ruta ruta) {
-    return Card(
-      elevation: 2,
-      child: Container(
-        width: 350,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildAssignmentChip(
+      String label, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    ruta.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
                   ),
                 ),
-                Chip(
-                  label: Text(ruta.routeId),
-                  backgroundColor: Colors.purple[100],
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.schedule, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(ruta.schedule),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('${ruta.stops.length} paradas'),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: () => _showRutaDetails(context, ruta),
-                  icon: const Icon(Icons.info_outline, size: 18),
-                  label: const Text('Detalles'),
-                ),
-                TextButton.icon(
-                  onPressed: () => _showRutaDialog(context, ruta),
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: const Text('Editar'),
-                ),
-                TextButton.icon(
-                  onPressed: () => _confirmDelete(context, ruta),
-                  icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                  label: const Text('Eliminar',
-                      style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  void _showRutaDetails(BuildContext context, Ruta ruta) {
+  void _showRouteDetails(BuildContext context, Ruta ruta) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -186,23 +385,34 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('ID Ruta: ${ruta.routeId}'),
-              const SizedBox(height: 8),
-              Text('Horario: ${ruta.schedule}'),
+              _buildDetailRow('ID Ruta', ruta.routeId),
+              _buildDetailRow('Horario', ruta.schedule),
+              _buildDetailRow(
+                  'Estado', ruta.active == true ? 'Activa' : 'Inactiva'),
+              _buildDetailRow('Paradas', '${ruta.stops.length}'),
               const SizedBox(height: 16),
-              const Text(
-                'Paradas:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              ...ruta.stops.map(
-                (parada) => ListTile(
-                  dense: true,
-                  leading: Text('${parada.order ?? 0}'),
-                  title: Text(parada.name),
-                  subtitle: Text(
-                      'Lat: ${parada.latitude.toStringAsFixed(4)}, Lng: ${parada.longitude.toStringAsFixed(4)}'),
+              if (ruta.stops.isNotEmpty) ...[
+                const Text(
+                  'Paradas:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-              ),
+                const SizedBox(height: 8),
+                ...ruta.stops.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final parada = entry.value;
+                  return ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 12,
+                      child: Text('${index + 1}'),
+                    ),
+                    title: Text(parada.name),
+                    subtitle: Text(
+                      '${parada.latitude.toStringAsFixed(4)}, ${parada.longitude.toStringAsFixed(4)}',
+                    ),
+                  );
+                }),
+              ],
             ],
           ),
         ),
@@ -216,7 +426,240 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     );
   }
 
-  void _showRutaDialog(BuildContext context, Ruta? ruta) {
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateRouteDialog(
+      BuildContext context, Ruta? ruta, bool fromTemplate) {
+    if (fromTemplate) {
+      _showTemplateSelectionDialog(context);
+    } else {
+      _showManualRouteDialog(context, ruta);
+    }
+  }
+
+  void _showTemplateSelectionDialog(BuildContext context) {
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    final existingRoutes = adminProvider.rutas;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Crear Ruta desde Plantilla'),
+        content: SizedBox(
+          width: 600,
+          height: 500,
+          child: existingRoutes.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.route_outlined,
+                          size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No hay rutas disponibles',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Crea una ruta primero para usarla como plantilla',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: existingRoutes.length,
+                  itemBuilder: (context, index) {
+                    final ruta = existingRoutes[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: const Icon(Icons.route, color: Colors.purple),
+                        title: Text(ruta.name),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('ID: ${ruta.routeId}'),
+                            Text('Horario: ${ruta.schedule}'),
+                            Text('${ruta.stops.length} paradas'),
+                          ],
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _createRouteFromExistingRoute(ruta);
+                          },
+                          child: const Text('Usar como Plantilla'),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _createRouteFromExistingRoute(Ruta existingRoute) {
+    // Mostrar diálogo para configurar la nueva ruta basada en la existente
+    final routeIdController = TextEditingController();
+    final nameController =
+        TextEditingController(text: '${existingRoute.name} (Copia)');
+    final scheduleController =
+        TextEditingController(text: existingRoute.schedule);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Crear Ruta desde Plantilla'),
+        content: SingleChildScrollView(
+          child: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Basada en: ${existingRoute.name}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: routeIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'ID de Ruta *',
+                    hintText: 'R001',
+                    prefixIcon: Icon(Icons.tag),
+                    helperText: 'Ingresa un ID único para la nueva ruta',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre de Ruta *',
+                    hintText: 'Ruta Centro - Norte',
+                    prefixIcon: Icon(Icons.route),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: scheduleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Horario *',
+                    hintText: '06:00 - 22:00',
+                    prefixIcon: Icon(Icons.schedule),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline,
+                          color: Colors.blue, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Se copiarán ${existingRoute.stops.length} paradas de la ruta original',
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.blue),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (routeIdController.text.isEmpty ||
+                  nameController.text.isEmpty ||
+                  scheduleController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Por favor completa todos los campos'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              // Crear nueva ruta basada en la existente
+              final newRuta = Ruta(
+                routeId: routeIdController.text.trim(),
+                name: nameController.text.trim(),
+                schedule: scheduleController.text.trim(),
+                stops: existingRoute.stops.map((stop) {
+                  return Parada(
+                    name: stop.name,
+                    latitude: stop.latitude,
+                    longitude: stop.longitude,
+                    order: stop.order,
+                  );
+                }).toList(),
+                polyline: existingRoute.polyline,
+                active: true,
+              );
+
+              Navigator.pop(context);
+              _showRouteCreationDialog(newRuta, false);
+            },
+            child: const Text('Crear Ruta'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualRouteDialog(BuildContext context, Ruta? ruta) {
     final routeIdController = TextEditingController(text: ruta?.routeId ?? '');
     final nameController = TextEditingController(text: ruta?.name ?? '');
     final scheduleController =
@@ -260,7 +703,7 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Nota: Las paradas se pueden agregar posteriormente',
+                  'Nota: Las paradas se pueden agregar después de crear la ruta',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
@@ -273,7 +716,7 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
               if (routeIdController.text.isEmpty ||
                   nameController.text.isEmpty ||
                   scheduleController.text.isEmpty) {
@@ -287,37 +730,16 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
               }
 
               final newRuta = Ruta(
-                routeId: routeIdController.text,
-                name: nameController.text,
-                schedule: scheduleController.text,
+                routeId: routeIdController.text.trim(),
+                name: nameController.text.trim(),
+                schedule: scheduleController.text.trim(),
                 stops: ruta?.stops ?? [],
                 polyline: ruta?.polyline ?? '',
+                active: ruta?.active ?? true,
               );
 
-              final adminProvider =
-                  Provider.of<AdminProvider>(context, listen: false);
-              bool success;
-
-              if (ruta == null) {
-                success = await adminProvider.createRuta(newRuta);
-              } else {
-                success =
-                    await adminProvider.updateRuta(ruta.routeId, newRuta);
-              }
-
-              if (success && context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      ruta == null
-                          ? 'Ruta creada exitosamente'
-                          : 'Ruta actualizada exitosamente',
-                    ),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
+              Navigator.pop(context);
+              _showRouteCreationDialog(newRuta, ruta != null);
             },
             child: Text(ruta == null ? 'Crear' : 'Actualizar'),
           ),
@@ -326,12 +748,283 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     );
   }
 
+  Future<void> _showRouteCreationDialog(Ruta ruta, bool isUpdate) async {
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    bool success;
+
+    if (isUpdate) {
+      success = await adminProvider.updateRuta(ruta.routeId, ruta);
+    } else {
+      print('🔄 Creando ruta: ${ruta.routeId} - ${ruta.name}');
+      success = await adminProvider.createRuta(ruta);
+      print('✅ Resultado creación: $success');
+      if (success) {
+        print('📊 Rutas después de crear: ${adminProvider.rutas.length}');
+      }
+    }
+
+    if (success && mounted) {
+      // Esperar un momento para que el provider se actualice
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Forzar actualización del estado
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isUpdate
+                  ? 'Ruta actualizada exitosamente'
+                  : 'Ruta creada exitosamente. Total: ${adminProvider.rutas.length}',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            adminProvider.error ??
+                'Error al ${isUpdate ? 'actualizar' : 'crear'} la ruta',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showAssignmentDialog(
+      BuildContext context, Ruta ruta, AdminProvider adminProvider) {
+    final conductores =
+        adminProvider.usuarios.where((u) => u.role == 'driver').toList();
+    final buses = adminProvider.buses;
+
+    final assignedDriver = _getAssignedDriver(ruta.routeId, adminProvider);
+    final assignedBus = _getAssignedBus(ruta.routeId, adminProvider);
+
+    int? selectedDriverId = assignedDriver?.id;
+    String? selectedBusId = assignedBus?.busId;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Asignar Recursos - ${ruta.name}'),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Seleccionar conductor
+                  DropdownButtonFormField<int?>(
+                    value: selectedDriverId,
+                    decoration: const InputDecoration(
+                      labelText: 'Conductor',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Sin conductor'),
+                      ),
+                      ...conductores.map((conductor) {
+                        return DropdownMenuItem<int?>(
+                          value: conductor.id,
+                          child: Text('${conductor.name} (${conductor.email})'),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedDriverId = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Seleccionar bus
+                  DropdownButtonFormField<String?>(
+                    value: selectedBusId,
+                    decoration: const InputDecoration(
+                      labelText: 'Bus',
+                      prefixIcon: Icon(Icons.directions_bus),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Sin bus'),
+                      ),
+                      ...buses.map((bus) {
+                        return DropdownMenuItem<String?>(
+                          value: bus.busId,
+                          child: Text('${bus.busId} - ${bus.status}'),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedBusId = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _saveAssignment(
+                  context,
+                  ruta,
+                  selectedDriverId,
+                  selectedBusId,
+                  adminProvider,
+                );
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveAssignment(
+    BuildContext context,
+    Ruta ruta,
+    int? driverId,
+    String? busId,
+    AdminProvider adminProvider,
+  ) async {
+    try {
+      // Buscar el bus seleccionado
+      BusLocation? bus;
+      if (busId != null) {
+        try {
+          bus = adminProvider.buses.firstWhere((b) => b.busId == busId);
+        } catch (e) {
+          // Bus no encontrado
+        }
+      }
+
+      // Lógica de asignación:
+      // 1. Si hay bus seleccionado, actualizarlo con conductor y ruta
+      // 2. Si solo hay conductor, asignarlo al bus existente de ese conductor o crear nuevo bus
+      // 3. Si se desasignan ambos, limpiar el bus
+
+      if (bus != null && bus.id != null) {
+        // Caso 1: Hay bus seleccionado
+        final updatedBus = bus.copyWith(
+          routeId: driverId != null
+              ? ruta.routeId
+              : (busId != null ? null : bus.routeId),
+          driverId: driverId,
+          status: driverId != null ? 'inactive' : bus.status,
+        );
+        await adminProvider.apiService.updateBusLocation(bus.id!, updatedBus);
+      } else if (driverId != null) {
+        // Caso 2: Solo hay conductor seleccionado (sin bus)
+        // Buscar si el conductor ya tiene un bus asignado
+        BusLocation? existingBus;
+        try {
+          existingBus = adminProvider.buses.firstWhere(
+            (b) => b.driverId == driverId,
+          );
+        } catch (e) {
+          // El conductor no tiene bus asignado
+        }
+
+        if (existingBus != null && existingBus.id != null) {
+          // Actualizar el bus existente del conductor
+          final updatedBus = existingBus.copyWith(
+            routeId: ruta.routeId,
+            driverId: driverId,
+          );
+          await adminProvider.apiService
+              .updateBusLocation(existingBus.id!, updatedBus);
+        } else {
+          // El conductor no tiene bus - buscar uno disponible o informar al usuario
+          BusLocation? availableBus;
+          try {
+            availableBus = adminProvider.buses.firstWhere(
+              (b) =>
+                  (b.routeId == null || b.routeId!.isEmpty) &&
+                  b.driverId == null,
+            );
+          } catch (e) {
+            // No hay buses disponibles
+          }
+
+          if (availableBus != null && availableBus.id != null) {
+            // Asignar bus disponible
+            final updatedBus = availableBus.copyWith(
+              routeId: ruta.routeId,
+              driverId: driverId,
+            );
+            await adminProvider.apiService
+                .updateBusLocation(availableBus.id!, updatedBus);
+          } else {
+            // No hay buses disponibles - informar al usuario
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'No hay buses disponibles. Por favor crea un bus primero.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+            return;
+          }
+        }
+      } else if (driverId == null && bus != null && bus.id != null) {
+        // Caso 3: Desasignar conductor (pero mantener el bus si estaba asignado a esta ruta)
+        final updatedBus = bus.copyWith(
+          routeId: bus.routeId == ruta.routeId ? null : bus.routeId,
+          driverId: null,
+        );
+        await adminProvider.apiService.updateBusLocation(bus.id!, updatedBus);
+      }
+
+      // Recargar datos
+      await _loadData();
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Asignación guardada exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al guardar asignación: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _confirmDelete(BuildContext context, Ruta ruta) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar Eliminación'),
-        content: Text('¿Estás seguro de eliminar la ruta ${ruta.name}?'),
+        content: Text('¿Estás seguro de eliminar la ruta "${ruta.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -343,8 +1036,9 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                   Provider.of<AdminProvider>(context, listen: false);
               final success = await adminProvider.deleteRuta(ruta.routeId);
 
-              if (success && context.mounted) {
+              if (success && mounted) {
                 Navigator.pop(context);
+                await _loadData();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Ruta eliminada exitosamente'),
@@ -364,4 +1058,3 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     );
   }
 }
-

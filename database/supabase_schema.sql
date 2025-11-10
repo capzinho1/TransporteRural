@@ -109,12 +109,25 @@ CREATE TRIGGER update_routes_updated_at
 -- DATOS DE PRUEBA (SOLO ADMINISTRADOR INICIAL)
 -- ================================================
 
--- Insertar usuarios iniciales básicos para login
+-- Insertar SOLO 2 usuarios iniciales:
+-- 1. super_admin para el panel web administrativo
+-- 2. usuario para la app móvil
+-- 
+-- NO se crean conductores, company_admin, ni empresas por defecto
 -- Todos los demás datos se crearán desde el panel administrativo
-INSERT INTO users (email, name, role) VALUES
-  ('admin@transporterural.com', 'Administrador', 'admin'),
-  ('usuario@transporterural.com', 'Usuario de Prueba', 'user')
-ON CONFLICT (email) DO NOTHING;
+INSERT INTO users (email, name, role, password) VALUES
+  ('admin@transporterural.com', 'Super Administrador', 'super_admin', 'admin123'),
+  ('usuario@transporterural.com', 'Usuario App Móvil', 'user', 'usuario123')
+ON CONFLICT (email) DO UPDATE SET
+  role = CASE 
+    WHEN EXCLUDED.email = 'admin@transporterural.com' THEN 'super_admin'
+    ELSE 'user'
+  END,
+  password = CASE 
+    WHEN EXCLUDED.email = 'admin@transporterural.com' THEN 'admin123'
+    ELSE 'usuario123'
+  END,
+  name = EXCLUDED.name;
 
 -- ================================================
 -- POLÍTICAS RLS (Row Level Security)

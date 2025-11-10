@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/georu_logo.dart';
-import '../models/usuario.dart';
 import 'home_screen.dart';
 import 'driver_screen.dart';
 
@@ -17,17 +16,40 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _autocompleteKey = GlobalKey<FormFieldState<String>>();
   bool _obscurePassword = true;
-  List<Usuario> _conductores = [];
-  String? _selectedEmail;
-
+  List<String> _userEmails = [];
+  bool _isLoadingUsers = false;
+  
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadConductores();
-    });
+    _loadUserEmails();
+  }
+
+  Future<void> _loadUserEmails() async {
+    try {
+      setState(() {
+        _isLoadingUsers = true;
+      });
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      await appProvider.loadUsuarios();
+      final emails = appProvider.usuarios
+          .map((u) => u.email)
+          .where((email) => email.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      setState(() {
+        _userEmails = emails;
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      // Si falla cargar usuarios, simplemente no mostrar autocompletado
+      setState(() {
+        _userEmails = [];
+        _isLoadingUsers = false;
+      });
+    }
   }
 
   @override
@@ -37,33 +59,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _loadConductores() async {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    await appProvider.loadUsuarios();
-    if (mounted) {
-      setState(() {
-        _conductores = appProvider.conductores;
-      });
-    }
-  }
-
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
 
-      // Extraer email si viene en formato "Nombre (email)"
-      String email = _emailController.text.trim();
-      if (email.contains('(') && email.contains(')')) {
-        email = email.split('(').last.split(')').first.trim();
-      }
-      
-      // Si hay un email seleccionado, usarlo
-      if (_selectedEmail != null) {
-        email = _selectedEmail!;
-      }
-
       final success = await appProvider.login(
-        email,
+        _emailController.text.trim(),
         _passwordController.text,
       );
 
@@ -129,47 +130,46 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 40),
 
-                // Campo de email con autocompletado para conductores
-                Autocomplete<Usuario>(
-                  key: _autocompleteKey,
+                // Campo de email con autocompletado
+                Autocomplete<String>(
                   optionsBuilder: (TextEditingValue textEditingValue) {
+                    // Actualizar el controlador cuando cambie el texto
+                    _emailController.text = textEditingValue.text;
                     if (textEditingValue.text.isEmpty) {
-                      return _conductores;
+                      return _userEmails.take(10);
                     }
-                    final query = textEditingValue.text.toLowerCase();
-                    return _conductores.where((conductor) {
-                      final email = conductor.email.toLowerCase();
-                      final name = conductor.name.toLowerCase();
-                      return email.contains(query) || name.contains(query);
-                    }).toList();
+                    return _userEmails
+                        .where((email) => email
+                            .toLowerCase()
+                            .contains(textEditingValue.text.toLowerCase()))
+                        .take(10);
                   },
-                  displayStringForOption: (Usuario conductor) => 
-                      '${conductor.name} (${conductor.email})',
-                  fieldViewBuilder: (
-                    BuildContext context,
-                    TextEditingController textEditingController,
-                    FocusNode focusNode,
-                    VoidCallback onFieldSubmitted,
-                  ) {
-                    // Sincronizar con el controlador principal
-                    if (_emailController.text != textEditingController.text) {
-                      _emailController.text = textEditingController.text;
+                  onSelected: (String email) {
+                    _emailController.text = email;
+                  },
+                  fieldViewBuilder: (BuildContext context,
+                      TextEditingController textEditingController,
+                      FocusNode focusNode,
+                      VoidCallback onFieldSubmitted) {
+                    // Inicializar con el valor del controlador si existe
+                    if (_emailController.text.isNotEmpty && 
+                        textEditingController.text.isEmpty) {
+                      textEditingController.text = _emailController.text;
                     }
-                    textEditingController.addListener(() {
-                      _emailController.text = textEditingController.text;
-                    });
                     
                     return TextFormField(
                       controller: textEditingController,
                       focusNode: focusNode,
                       keyboardType: TextInputType.emailAddress,
+                      onChanged: (value) {
+                        _emailController.text = value;
+                      },
                       decoration: InputDecoration(
-                        labelText: 'Email o Nombre del Conductor',
-                        hintText: 'Busca por nombre o email',
+                        labelText: 'Email',
+                        hintText: _isLoadingUsers 
+                            ? 'Cargando usuarios...' 
+                            : 'Ingresa tu email',
                         prefixIcon: const Icon(Icons.person_outline),
-                        suffixIcon: _conductores.isNotEmpty
-                            ? const Icon(Icons.arrow_drop_down)
-                            : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -182,81 +182,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Por favor ingresa tu email';
                         }
-                        // Extraer email si viene en formato "Nombre (email)"
-                        final email = value.contains('(') && value.contains(')')
-                            ? value.split('(').last.split(')').first.trim()
-                            : value.trim();
-                        if (!email.contains('@')) {
+                        if (!value.contains('@')) {
                           return 'Por favor ingresa un email válido';
                         }
                         return null;
                       },
-                    );
-                  },
-                  onSelected: (Usuario conductor) {
-                    setState(() {
-                      _selectedEmail = conductor.email;
-                      _emailController.text = conductor.email;
-                    });
-                  },
-                  optionsViewBuilder: (
-                    BuildContext context,
-                    AutocompleteOnSelected<Usuario> onSelected,
-                    Iterable<Usuario> options,
-                  ) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 4.0,
-                        borderRadius: BorderRadius.circular(12),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 200),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              final conductor = options.elementAt(index);
-                              return InkWell(
-                                onTap: () => onSelected(conductor),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.person,
-                                        color: Color(0xFF2E7D32),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              conductor.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              conductor.email,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
                     );
                   },
                 ),
@@ -359,63 +289,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 const SizedBox(height: 20),
-
-                // Credenciales de prueba con botón de autocompletado
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Credenciales de prueba:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _emailController.text =
-                                    'usuario@transporterural.com';
-                                _passwordController.text = 'usuario123';
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Credenciales cargadas ✓'),
-                                  duration: Duration(seconds: 1),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.flash_on, size: 16),
-                            label: const Text('Autocompletar'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              textStyle: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text('Email: usuario@transporterural.com'),
-                      const Text('Contraseña: usuario123'),
-                    ],
-                  ),
-                ),
+                
+                // SEGURIDAD: No mostrar credenciales en el código
+                // Los usuarios deben ingresar sus credenciales manualmente
+                // Las contraseñas NO se pre-llenan por seguridad
               ],
             ),
           ),

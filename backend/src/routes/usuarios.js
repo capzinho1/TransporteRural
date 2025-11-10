@@ -2,13 +2,36 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../config/supabase');
 
+// Helper para obtener usuario desde header o query
+const getUserFromRequest = async (req) => {
+  const userId = req.headers['x-user-id'] || req.query.user_id;
+  if (!userId) return null;
+  
+  const { data: user } = await supabase
+    .from('users')
+    .select('role, company_id')
+    .eq('id', userId)
+    .single();
+  
+  return user;
+};
+
 // GET /api/usuarios - Obtener todos los usuarios
 router.get('/', async (req, res) => {
   try {
-    const { data: usuarios, error } = await supabase
+    let query = supabase
       .from('users')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
+    
+    // Filtrar por empresa si es company_admin
+    const user = await getUserFromRequest(req);
+    if (user && user.role === 'company_admin' && user.company_id) {
+      query = query.eq('company_id', user.company_id);
+    }
+    
+    query = query.order('created_at', { ascending: false });
+    
+    const { data: usuarios, error } = await query;
     
     if (error) throw error;
     
@@ -62,29 +85,71 @@ router.get('/:id', async (req, res) => {
 // POST /api/usuarios - Crear nuevo usuario
 router.post('/', async (req, res) => {
   try {
-    const { name, email, role, notification_tokens } = req.body;
+    const { name, email, role, password, notification_tokens, company_id } = req.body;
+    
+    // Validar campos obligatorios
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'El nombre es requerido',
+        message: 'El campo "name" no puede estar vacío'
+      });
+    }
+    
+    if (!email || email.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'El email es requerido',
+        message: 'El campo "email" no puede estar vacío'
+      });
+    }
+    
+    // Obtener usuario y asignar company_id automáticamente si es company_admin
+    const user = await getUserFromRequest(req);
+    let finalCompanyId = company_id;
+    if (!finalCompanyId && user && user.role === 'company_admin' && user.company_id) {
+      finalCompanyId = user.company_id;
+    }
+    
+    // Construir objeto de inserción
+    const insertData = {
+      name: name.trim(),
+      email: email.trim(),
+      role: role || 'user',
+      notification_tokens: notification_tokens || null,
+      company_id: finalCompanyId || null
+    };
+    
+    // Agregar password si se proporciona (para nuevos usuarios)
+    if (password && password.trim() !== '') {
+      insertData.password = password.trim();
+    } else if (!password) {
+      // Si no se proporciona password, establecer uno por defecto según el rol
+      // En producción, esto debería requerirse siempre
+      insertData.password = role === 'driver' ? 'conductor123' : 'usuario123';
+    }
     
     const { data: nuevoUsuario, error } = await supabase
       .from('users')
-      .insert([
-        {
-          name,
-          email,
-          role: role || 'user',
-          notification_tokens: notification_tokens || null
-        }
-      ])
+      .insert([insertData])
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error al crear usuario:', error);
+      throw error;
+    }
+    
+    // Remover password del objeto antes de enviarlo
+    const { password: _, ...usuarioSinPassword } = nuevoUsuario;
     
     res.status(201).json({
       success: true,
-      data: nuevoUsuario,
+      data: usuarioSinPassword,
       message: 'Usuario creado exitosamente'
     });
   } catch (error) {
+    console.error('Error al crear usuario:', error);
     res.status(500).json({
       success: false,
       error: 'Error al crear usuario',
@@ -112,45 +177,51 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // TODO: Implementar verificación real de contraseña con bcrypt
-    // Por ahora, aceptamos credenciales de prueba
-    const validPasswords = {
-      'admin@transporterural.com': 'admin123',
-      'usuario@transporterural.com': 'usuario123',
-      'conductor1@transporterural.com': 'conductor123',
-      'conductor2@transporterural.com': 'conductor123',
-      // Conductores adicionales de la base de datos
-      'pedro.gomez@transporterural.com': 'conductor123',
-      'maria.silva@transporterural.com': 'conductor123',
-      'juan.torres@transporterural.com': 'conductor123',
-      'carmen.rojas@transporterural.com': 'conductor123',
-      'luis.morales@transporterural.com': 'conductor123',
-      'ana.fernandez@transporterural.com': 'conductor123'
-    };
+    // SEGURIDAD: Solo verificar contraseña desde la base de datos
+    // NO usar contraseñas hardcodeadas ni por defecto
+    // TODO: Implementar verificación con bcrypt para mayor seguridad
     
-    // Si el usuario es un conductor y no está en la lista, aceptar con contraseña por defecto
-    const isDriver = usuario.role === 'driver';
-    const defaultDriverPassword = 'conductor123';
-    
-    // Verificar contraseña
-    const isValidPassword = validPasswords[email] === password || 
-                           (isDriver && password === defaultDriverPassword);
-    
-    if (!isValidPassword) {
+    // Verificar que el usuario tenga contraseña en la BD
+    if (!usuario.password || usuario.password.trim() === '') {
+      console.error(`Login rechazado: Usuario ${email} no tiene contraseña en la BD`);
       return res.status(401).json({
         success: false,
-        error: 'Credenciales inválidas'
+        error: 'Credenciales inválidas',
+        message: 'El usuario no tiene contraseña configurada. Contacte al administrador.'
       });
     }
     
+    // Comparar contraseña ingresada con la almacenada en la BD
+    const passwordBD = String(usuario.password).trim();
+    const passwordIngresada = String(password).trim();
+    
+    // Comparación directa (en producción debería usar bcrypt.compare)
+    const isValidPassword = passwordBD === passwordIngresada;
+    
+    if (!isValidPassword) {
+      // No revelar información específica por seguridad (no loggear contraseñas)
+      console.error(`Login fallido para ${email}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciales inválidas',
+        message: 'Email o contraseña incorrectos'
+      });
+    }
+    
+    // Log básico sin información sensible
+    console.log(`Login exitoso para usuario: ${email}`);
+    
     // Generar token simple (TODO: implementar JWT real)
     const token = 'jwt_token_' + Date.now();
+    
+    // Remover password del objeto usuario antes de enviarlo
+    const { password: _, ...usuarioSinPassword } = usuario;
     
     res.json({
       success: true,
       data: {
         token,
-        usuario: usuario
+        usuario: usuarioSinPassword
       },
       message: 'Login exitoso'
     });

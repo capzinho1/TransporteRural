@@ -101,7 +101,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStateProperty.all(Colors.grey[200]),
+        headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
         columns: const [
           DataColumn(label: Text('ID')),
           DataColumn(label: Text('Nombre')),

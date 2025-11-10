@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
+import '../services/admin_api_service.dart';
 import '../widgets/georu_logo.dart';
 import 'dashboard_screen.dart';
 
@@ -16,6 +17,44 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  List<String> _userEmails = [];
+  bool _isLoadingUsers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserEmails();
+  }
+
+  Future<void> _loadUserEmails() async {
+    try {
+      setState(() {
+        _isLoadingUsers = true;
+      });
+      // Cargar usuarios directamente desde el servicio sin usar el provider
+      // ya que el provider puede requerir autenticación
+      final apiService = AdminApiService();
+      final usuarios = await apiService.getUsuarios();
+      final emails = usuarios
+          .map((u) => u.email)
+          .where((email) => email.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      setState(() {
+        _userEmails = emails;
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      // Si falla cargar usuarios (por ejemplo, si requiere autenticación),
+      // simplemente no mostrar autocompletado
+      setState(() {
+        _userEmails = [];
+        _isLoadingUsers = false;
+      });
+      // No mostrar error al usuario, solo no hay autocompletado
+    }
+  }
 
   @override
   void dispose() {
@@ -48,19 +87,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     }
   }
 
-  void _autoFillCredentials() {
-    setState(() {
-      _emailController.text = 'admin@transporterural.com';
-      _passwordController.text = 'admin123';
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Credenciales de administrador cargadas ✓'),
-        duration: Duration(seconds: 1),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
+  // Eliminado: No se deben tener credenciales hardcodeadas en el código
+  // Las credenciales deben venir únicamente de la base de datos
 
   @override
   Widget build(BuildContext context) {
@@ -110,33 +138,67 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
                       const SizedBox(height: 32),
 
-                      // Campo de email
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'admin@transporterural.com',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Colors.deepPurple,
-                              width: 2,
+                      // Campo de email con autocompletado
+                      Autocomplete<String>(
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          // Actualizar el controlador cuando cambie el texto
+                          _emailController.text = textEditingValue.text;
+                          if (textEditingValue.text.isEmpty) {
+                            return _userEmails.take(10);
+                          }
+                          return _userEmails
+                              .where((email) => email
+                                  .toLowerCase()
+                                  .contains(textEditingValue.text.toLowerCase()))
+                              .take(10);
+                        },
+                        onSelected: (String email) {
+                          _emailController.text = email;
+                        },
+                        fieldViewBuilder: (BuildContext context,
+                            TextEditingController textEditingController,
+                            FocusNode focusNode,
+                            VoidCallback onFieldSubmitted) {
+                          // Inicializar con el valor del controlador si existe
+                          if (_emailController.text.isNotEmpty && 
+                              textEditingController.text.isEmpty) {
+                            textEditingController.text = _emailController.text;
+                          }
+                          
+                          return TextFormField(
+                            controller: textEditingController,
+                            focusNode: focusNode,
+                            keyboardType: TextInputType.emailAddress,
+                            onChanged: (value) {
+                              _emailController.text = value;
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              hintText: _isLoadingUsers 
+                                  ? 'Cargando usuarios...' 
+                                  : 'Ingresa tu email',
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Colors.deepPurple,
+                                  width: 2,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Por favor ingresa tu email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Por favor ingresa un email válido';
-                          }
-                          return null;
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Por favor ingresa tu email';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Por favor ingresa un email válido';
+                              }
+                              return null;
+                            },
+                          );
                         },
                       ),
 
@@ -220,60 +282,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       ),
 
                       const SizedBox(height: 20),
-
-                      // Credenciales de prueba
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.amber[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.amber[200]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(
-                                        Icons.admin_panel_settings,
-                                        color: Colors.amber,
-                                        size: 20,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
-                                          'Acceso Admin:',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.amber,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  onPressed: _autoFillCredentials,
-                                  icon: const Icon(Icons.flash_on, size: 16),
-                                  label: const Text('Autocompletar'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.amber[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            const Text('Email: admin@transporterural.com'),
-                            const Text('Contraseña: admin123'),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
 import '../widgets/georu_logo.dart';
-import 'routes_drivers_screen.dart';
-import 'route_templates_screen.dart';
+import 'routes_management_screen.dart';
 import 'users_management_screen.dart';
 import 'conductores_management_screen.dart';
+import 'buses_management_screen.dart';
 import 'realtime_map_screen.dart';
 import 'reports_screen.dart';
 import 'notifications_screen.dart';
+import 'companies_management_screen.dart';
 import 'admin_login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -37,59 +38,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> screens = [
-      _buildDashboard(),
-      const RoutesDriversScreen(),
-      const RouteTemplatesScreen(),
-      const ConductoresManagementScreen(),
-      const RealtimeMapScreen(),
-      const ReportsScreen(),
-      const NotificationsScreen(),
-      const UsersManagementScreen(),
-    ];
+    return Consumer<AdminProvider>(
+      builder: (context, adminProvider, child) {
+        final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+        
+        // Pantallas diferentes según el rol
+        final List<Widget> screens = isSuperAdmin
+            ? [
+                // Super Admin: Reportes y gestión de empresas
+                _buildDashboard(),
+                const ReportsScreen(),
+                const CompaniesManagementScreen(),
+                const RealtimeMapScreen(),
+                const NotificationsScreen(),
+              ]
+            : [
+                // Company Admin: Gestión completa de su empresa
+                _buildDashboard(),
+                const RoutesManagementScreen(),
+                const BusesManagementScreen(),
+                const ConductoresManagementScreen(),
+                const RealtimeMapScreen(),
+                const ReportsScreen(),
+                const NotificationsScreen(),
+                const UsersManagementScreen(),
+              ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const GeoRuLogo(
-              size: 28,
-              showText: false,
-              showSlogan: false,
+        return Scaffold(
+          appBar: AppBar(
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const GeoRuLogo(
+                  size: 28,
+                  showText: false,
+                  showSlogan: false,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'GeoRu - Panel ${isSuperAdmin ? "Super Admin" : "Admin"}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'GeoRu - Panel Admin',
-                overflow: TextOverflow.ellipsis,
+            backgroundColor: Colors.deepPurple,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadData,
+                tooltip: 'Actualizar datos',
               ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-            tooltip: 'Actualizar datos',
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () {
+                  _showLogoutDialog();
+                },
+                tooltip: 'Cerrar sesión',
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              _showLogoutDialog();
-            },
-            tooltip: 'Cerrar sesión',
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(),
-      body: screens[_selectedIndex],
+          drawer: _buildDrawer(adminProvider),
+          body: screens[_selectedIndex],
+        );
+      },
     );
   }
 
-  Widget _buildDrawer() {
+  Widget _buildDrawer(AdminProvider adminProvider) {
+    final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+    int menuIndex = 0;
+    
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -136,108 +157,197 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Consumer<AdminProvider>(
-                  builder: (context, adminProvider, child) {
-                    return Text(
-                      adminProvider.currentUser?.name ?? 'Administrador',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    );
-                  },
+                Text(
+                  adminProvider.currentUser?.name ?? 'Administrador',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSuperAdmin ? Colors.orange : Colors.blue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isSuperAdmin ? 'Super Admin' : 'Admin Empresa',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.dashboard),
-            title: const Text('Dashboard'),
-            selected: _selectedIndex == 0,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 0;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.route),
-            title: const Text('Rutas y Conductores'),
-            selected: _selectedIndex == 1,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 1;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.content_copy),
-            title: const Text('Plantillas de Rutas'),
-            selected: _selectedIndex == 2,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 2;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.drive_eta),
-            title: const Text('Gestión de Conductores'),
-            selected: _selectedIndex == 3,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 3;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.map),
-            title: const Text('Mapa en Tiempo Real'),
-            selected: _selectedIndex == 4,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 4;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.assessment),
-            title: const Text('Reportes'),
-            selected: _selectedIndex == 5,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 5;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('Notificaciones'),
-            selected: _selectedIndex == 6,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 6;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people),
-            title: const Text('Usuarios'),
-            selected: _selectedIndex == 7,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 7;
-              });
-              Navigator.pop(context);
-            },
-          ),
+          
+          // Menú según el rol
+          if (isSuperAdmin) ...[
+            // MENÚ SUPER ADMIN: Reportes y gestión de empresas
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard General'),
+              subtitle: const Text('Vista general del sistema'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.assessment, color: Colors.green),
+              title: const Text('Reportes del Sistema'),
+              subtitle: const Text('Estadísticas a gran escala'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 1;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.business, color: Colors.deepPurple),
+              title: const Text('Gestión de Empresas'),
+              subtitle: const Text('Crear y administrar empresas'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 2;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.map),
+              title: const Text('Mapa Global'),
+              subtitle: const Text('Todas las empresas'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 3;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notificaciones Globales'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 4;
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ] else ...[
+            // MENÚ COMPANY ADMIN: Gestión completa de su empresa
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              subtitle: const Text('Vista general de mi empresa'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.route, color: Colors.purple),
+              title: const Text('Gestión de Rutas'),
+              subtitle: const Text('Rutas, plantillas y asignaciones'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 1;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.directions_bus),
+              title: const Text('Gestión de Buses'),
+              subtitle: const Text('Flota de la empresa'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 2;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.drive_eta),
+              title: const Text('Gestión de Conductores'),
+              subtitle: const Text('Personal de la empresa'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 3;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('Usuarios de la Empresa'),
+              subtitle: const Text('Gestionar usuarios'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 7;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.map),
+              title: const Text('Mapa en Tiempo Real'),
+              subtitle: const Text('Buses de mi empresa'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 4;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.assessment),
+              title: const Text('Reportes de la Empresa'),
+              subtitle: const Text('Estadísticas internas'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 5;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notificaciones'),
+              selected: _selectedIndex == menuIndex++,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 6;
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ],
+          
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
@@ -269,21 +379,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Título
-                const Text(
-                  'Panel de Control',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Vista general del sistema',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                // Título según rol
+                Consumer<AdminProvider>(
+                  builder: (context, adminProvider, child) {
+                    final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isSuperAdmin ? 'Panel de Control - Sistema Completo' : 'Panel de Control - Mi Empresa',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isSuperAdmin 
+                            ? 'Vista general de todas las empresas y usuarios del sistema'
+                            : 'Vista general de tu empresa: buses, rutas y personal',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -333,81 +455,155 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(height: 32),
 
-                // Accesos rápidos
-                const Text(
-                  'Accesos Rápidos',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [
-                    _buildQuickAccessCard(
-                      'Agregar Bus',
-                      Icons.add_circle,
-                      Colors.blue,
-                      () {
-                        setState(() {
-                          _selectedIndex = 1;
-                        });
-                      },
-                    ),
-                    _buildQuickAccessCard(
-                      'Crear Ruta',
-                      Icons.add_road,
-                      Colors.purple,
-                      () {
-                        setState(() {
-                          _selectedIndex = 2;
-                        });
-                      },
-                    ),
-                    _buildQuickAccessCard(
-                      'Nuevo Conductor',
-                      Icons.drive_eta,
-                      Colors.orange,
-                      () {
-                        setState(() {
-                          _selectedIndex = 3;
-                        });
-                      },
-                    ),
-                    _buildQuickAccessCard(
-                      'Ver Mapa',
-                      Icons.map,
-                      Colors.green,
-                      () {
-                        setState(() {
-                          _selectedIndex = 4;
-                        });
-                      },
-                    ),
-                    _buildQuickAccessCard(
-                      'Reportes',
-                      Icons.assessment,
-                      Colors.teal,
-                      () {
-                        setState(() {
-                          _selectedIndex = 5;
-                        });
-                      },
-                    ),
-                    _buildQuickAccessCard(
-                      'Notificaciones',
-                      Icons.notifications,
-                      Colors.red,
-                      () {
-                        setState(() {
-                          _selectedIndex = 6;
-                        });
-                      },
-                    ),
-                  ],
+                // Accesos rápidos según rol
+                Consumer<AdminProvider>(
+                  builder: (context, adminProvider, child) {
+                    final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+                    
+                    if (isSuperAdmin) {
+                      // Accesos rápidos para Super Admin
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Accesos Rápidos',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: [
+                              _buildQuickAccessCard(
+                                'Ver Reportes',
+                                Icons.assessment,
+                                Colors.green,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 1;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Gestionar Empresas',
+                                Icons.business,
+                                Colors.deepPurple,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 2;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Mapa Global',
+                                Icons.map,
+                                Colors.blue,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 3;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Notificaciones',
+                                Icons.notifications,
+                                Colors.orange,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 4;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    } else {
+                      // Accesos rápidos para Company Admin
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Accesos Rápidos',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: [
+                              _buildQuickAccessCard(
+                                'Agregar Bus',
+                                Icons.add_circle,
+                                Colors.blue,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 3;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Crear Ruta',
+                                Icons.add_road,
+                                Colors.purple,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 1;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Nuevo Conductor',
+                                Icons.drive_eta,
+                                Colors.orange,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 4;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Gestionar Usuarios',
+                                Icons.people,
+                                Colors.indigo,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 8;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Ver Mapa',
+                                Icons.map,
+                                Colors.green,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 5;
+                                  });
+                                },
+                              ),
+                              _buildQuickAccessCard(
+                                'Reportes',
+                                Icons.assessment,
+                                Colors.teal,
+                                () {
+                                  setState(() {
+                                    _selectedIndex = 6;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                  },
                 ),
               ],
             ),

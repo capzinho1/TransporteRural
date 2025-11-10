@@ -38,9 +38,9 @@ class RutaCard extends StatelessWidget {
                     color: Colors.blue,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
+                  child: const Text(
                     'ACTIVA',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -67,9 +67,9 @@ class RutaCard extends StatelessWidget {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          Text(
+                          const Text(
                             'Inicio',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -85,9 +85,9 @@ class RutaCard extends StatelessWidget {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          Text(
+                          const Text(
                             'Fin',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),

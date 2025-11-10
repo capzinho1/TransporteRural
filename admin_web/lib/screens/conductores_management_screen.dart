@@ -445,19 +445,29 @@ class _ConductoresManagementScreenState
                 return;
               }
 
-              final newConductor = Usuario(
-                id: conductor?.id ?? 0,
-                name: nameController.text,
-                email: emailController.text,
-                role: 'driver',
-              );
-
               final adminProvider =
                   Provider.of<AdminProvider>(context, listen: false);
+              
+              // Crear el objeto Usuario para el conductor
+              final newConductor = Usuario(
+                id: conductor?.id ?? 0,
+                name: nameController.text.trim(),
+                email: emailController.text.trim(),
+                role: 'driver',
+              );
+              
+              // Para crear el conductor, necesitamos enviar también la contraseña
+              // Crear un mapa con los datos adicionales (password) que no están en el modelo Usuario
+              final conductorData = newConductor.toJson();
+              if (conductor == null && passwordController.text.isNotEmpty) {
+                conductorData['password'] = passwordController.text;
+              }
+
               bool success;
 
               if (conductor == null) {
-                success = await adminProvider.createUsuario(newConductor);
+                // Usar el método del servicio directamente para enviar el password
+                success = await adminProvider.createUsuarioWithData(conductorData);
               } else {
                 success = await adminProvider.updateUsuario(
                     conductor.id, newConductor);
