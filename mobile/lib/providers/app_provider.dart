@@ -4,6 +4,9 @@ import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
 import '../models/notificacion.dart';
+import '../models/trip.dart';
+import '../models/rating.dart';
+import '../models/user_report.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 
@@ -23,6 +26,9 @@ class AppProvider extends ChangeNotifier {
   List<Ruta> _rutas = [];
   List<Usuario> _usuarios = [];
   List<Notificacion> _notifications = [];
+  List<Trip> _trips = [];
+  final List<Rating> _ratings = [];
+  List<UserReport> _userReports = [];
 
   // Getters
   bool get isLoading => _isLoading;
@@ -33,9 +39,20 @@ class AppProvider extends ChangeNotifier {
   List<Ruta> get rutas => _rutas;
   List<Usuario> get usuarios => _usuarios;
   List<Notificacion> get notifications => _notifications;
-  
+  List<Trip> get trips => _trips;
+  List<Rating> get ratings => _ratings;
+  List<UserReport> get userReports => _userReports;
+
   // Obtener solo conductores
-  List<Usuario> get conductores => _usuarios.where((u) => u.role == 'driver').toList();
+  List<Usuario> get conductores =>
+      _usuarios.where((u) => u.role == 'driver').toList();
+
+  // Obtener viajes completados
+  List<Trip> get completedTrips => _trips.where((t) => t.isCompleted).toList();
+
+  // Obtener reportes del usuario actual
+  List<UserReport> get myReports =>
+      _userReports.where((r) => r.userId == _currentUser?.id).toList();
 
   // Métodos para manejar el estado de carga
   void _setLoading(bool loading) {
@@ -123,7 +140,7 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  List<BusLocation> getBusLocationsByRoute(int routeId) {
+  List<BusLocation> getBusLocationsByRoute(String routeId) {
     return _busLocations
         .where((location) => location.routeId == routeId)
         .toList();
@@ -147,7 +164,7 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  Ruta? getRutaById(int id) {
+  Ruta? getRutaById(String id) {
     try {
       return _rutas.firstWhere((ruta) => ruta.routeId == id);
     } catch (e) {
@@ -173,7 +190,7 @@ class AppProvider extends ChangeNotifier {
       _setLoading(true);
       final driverId = _currentUser?.id;
       BusLocation? myBus;
-      
+
       if (driverId != null) {
         try {
           myBus = _busLocations.firstWhere(
@@ -183,9 +200,9 @@ class AppProvider extends ChangeNotifier {
           // No hay bus asignado
         }
       }
-      
+
       final routeId = myBus?.routeId;
-      
+
       _notifications = await _apiService.getNotifications(
         driverId: driverId,
         routeId: routeId,
@@ -197,8 +214,132 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  // === TRIPS (VIAJES) ===
+  Future<void> loadTrips() async {
+    try {
+      _setLoading(true);
+      _trips = await _apiService.getTrips();
+      _setLoading(false);
+    } catch (e) {
+      _setError('Error al cargar viajes: $e');
+      _setLoading(false);
+    }
+  }
+
+  Future<void> loadCompletedTrips() async {
+    try {
+      _setLoading(true);
+      _trips = await _apiService.getCompletedTrips();
+      _setLoading(false);
+    } catch (e) {
+      _setError('Error al cargar viajes completados: $e');
+      _setLoading(false);
+    }
+  }
+
+  // === RATINGS (CALIFICACIONES) ===
+  Future<bool> createRating({
+    required int driverId,
+    required int rating,
+    String? routeId,
+    int? tripId,
+    String? comment,
+    int? punctualityRating,
+    int? serviceRating,
+    int? cleanlinessRating,
+    int? safetyRating,
+  }) async {
+    try {
+      _setLoading(true);
+      final ratingData = {
+        'user_id': _currentUser?.id,
+        'driver_id': driverId,
+        'rating': rating,
+        if (routeId != null) 'route_id': routeId,
+        if (tripId != null) 'trip_id': tripId,
+        if (comment != null) 'comment': comment,
+        if (punctualityRating != null) 'punctuality_rating': punctualityRating,
+        if (serviceRating != null) 'service_rating': serviceRating,
+        if (cleanlinessRating != null) 'cleanliness_rating': cleanlinessRating,
+        if (safetyRating != null) 'safety_rating': safetyRating,
+      };
+      await _apiService.createRating(ratingData);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setError('Error al crear calificación: $e');
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  // === USER REPORTS (REPORTES) ===
+  Future<bool> createUserReport({
+    required String type,
+    required String title,
+    required String description,
+    String? routeId,
+    String? busId,
+    int? tripId,
+    String priority = 'medium',
+    List<String>? tags,
+  }) async {
+    try {
+      _setLoading(true);
+      final reportData = {
+        'user_id': _currentUser?.id,
+        'type': type,
+        'title': title,
+        'description': description,
+        'priority': priority,
+        'status': 'pending',
+        if (routeId != null) 'route_id': routeId,
+        if (busId != null) 'bus_id': busId,
+        if (tripId != null) 'trip_id': tripId,
+        if (tags != null && tags.isNotEmpty) 'tags': tags,
+      };
+      await _apiService.createUserReport(reportData);
+      // Recargar reportes después de crear uno nuevo
+      await loadUserReports();
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setError('Error al crear reporte: $e');
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  // Obtener alertas activas por bus
+  Future<List<UserReport>> getBusAlerts(String busId) async {
+    try {
+      final reports = await _apiService.getUserReportsByBus(busId);
+      // Filtrar solo reportes activos (pending, reviewed) con tags
+      return reports
+          .where((report) =>
+              report.busId == busId &&
+              (report.status == 'pending' || report.status == 'reviewed') &&
+              report.tags != null &&
+              report.tags!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> loadUserReports() async {
+    try {
+      _setLoading(true);
+      _userReports = await _apiService.getUserReports();
+      _setLoading(false);
+    } catch (e) {
+      _setError('Error al cargar reportes: $e');
+      _setLoading(false);
+    }
+  }
+
   // === UTILIDADES ===
-  double? calculateDistanceToBus(int busId) {
+  double? calculateDistanceToBus(String busId) {
     if (_currentPosition == null) return null;
 
     final busLocation = _busLocations.firstWhere((b) => b.busId == busId);
@@ -226,6 +367,10 @@ class AppProvider extends ChangeNotifier {
 
   // Método para refrescar todos los datos
   Future<void> refreshAllData() async {
-    await Future.wait([loadBusLocations(), loadRutas()]);
+    await Future.wait([
+      loadBusLocations(),
+      loadRutas(),
+      loadUsuarios(),
+    ]);
   }
 }

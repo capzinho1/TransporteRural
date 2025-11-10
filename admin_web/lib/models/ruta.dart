@@ -8,6 +8,8 @@ class Ruta {
   final String polyline;
   final int? companyId; // ID de la empresa
   final bool? active; // Estado activo/inactivo
+  final int? estimatedDuration; // Duración estimada en minutos
+  final int? frequency; // Frecuencia en minutos (cada cuánto sale un bus)
 
   Ruta({
     required this.routeId,
@@ -17,6 +19,8 @@ class Ruta {
     required this.polyline,
     this.companyId,
     this.active,
+    this.estimatedDuration,
+    this.frequency,
   });
 
   factory Ruta.fromJson(Map<String, dynamic> json) {
@@ -51,6 +55,8 @@ class Ruta {
       polyline: json['polyline'] ?? '',
       companyId: json['company_id'],
       active: json['active'],
+      estimatedDuration: json['estimated_duration'],
+      frequency: json['frequency'],
     );
   }
 
@@ -63,7 +69,33 @@ class Ruta {
       'polyline': polyline,
       if (companyId != null) 'company_id': companyId,
       if (active != null) 'active': active,
+      if (estimatedDuration != null) 'estimated_duration': estimatedDuration,
+      if (frequency != null) 'frequency': frequency,
     };
+  }
+  
+  Ruta copyWith({
+    String? routeId,
+    String? name,
+    String? schedule,
+    List<Parada>? stops,
+    String? polyline,
+    int? companyId,
+    bool? active,
+    int? estimatedDuration,
+    int? frequency,
+  }) {
+    return Ruta(
+      routeId: routeId ?? this.routeId,
+      name: name ?? this.name,
+      schedule: schedule ?? this.schedule,
+      stops: stops ?? this.stops,
+      polyline: polyline ?? this.polyline,
+      companyId: companyId ?? this.companyId,
+      active: active ?? this.active,
+      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
+      frequency: frequency ?? this.frequency,
+    );
   }
 }
 

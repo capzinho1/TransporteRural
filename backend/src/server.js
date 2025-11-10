@@ -21,8 +21,10 @@ const rutasRoutes = require('./routes/rutas');
 const busesRoutes = require('./routes/buses');
 const usuariosRoutes = require('./routes/usuarios');
 const notificationsRoutes = require('./routes/notifications');
-const recorridosRoutes = require('./routes/recorridos');
 const empresasRoutes = require('./routes/empresas');
+const tripsRoutes = require('./routes/trips');
+const userReportsRoutes = require('./routes/user_reports');
+const ratingsRoutes = require('./routes/ratings');
 
 // Rutas de la API
 app.use('/api/routes', rutasRoutes);
@@ -30,6 +32,9 @@ app.use('/api/bus-locations', busesRoutes);
 app.use('/api/users', usuariosRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/empresas', empresasRoutes);
+app.use('/api/trips', tripsRoutes);
+app.use('/api/user-reports', userReportsRoutes);
+app.use('/api/ratings', ratingsRoutes);
 
 // Ruta de salud
 app.get('/health', (req, res) => {

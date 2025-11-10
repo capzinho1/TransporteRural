@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   List<String> _userEmails = [];
   bool _isLoadingUsers = false;
-  
+
   @override
   void initState() {
     super.initState();
@@ -72,13 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
         // Redirigir según el rol del usuario
         final userRole = appProvider.currentUser?.role ?? 'user';
         Widget destination;
-        
+
         if (userRole == 'driver') {
           destination = const DriverScreen();
         } else {
           destination = const HomeScreen();
         }
-        
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => destination),
         );
@@ -108,19 +108,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 40),
 
                 // Logo GeoRu y título
-                Center(
+                const Center(
                   child: Column(
                     children: [
                       // Logo completo con ícono y texto
-                      const GeoRuLogo(
+                      GeoRuLogo(
                         size: 120,
                         showText: true,
                         showSlogan: false,
                         showBackground: true,
                         backgroundColor: Colors.white,
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         'Inicia sesión para continuar',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),
@@ -152,11 +152,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       FocusNode focusNode,
                       VoidCallback onFieldSubmitted) {
                     // Inicializar con el valor del controlador si existe
-                    if (_emailController.text.isNotEmpty && 
+                    if (_emailController.text.isNotEmpty &&
                         textEditingController.text.isEmpty) {
                       textEditingController.text = _emailController.text;
                     }
-                    
+
                     return TextFormField(
                       controller: textEditingController,
                       focusNode: focusNode,
@@ -166,8 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       decoration: InputDecoration(
                         labelText: 'Email',
-                        hintText: _isLoadingUsers 
-                            ? 'Cargando usuarios...' 
+                        hintText: _isLoadingUsers
+                            ? 'Cargando usuarios...'
                             : 'Ingresa tu email',
                         prefixIcon: const Icon(Icons.person_outline),
                         border: OutlineInputBorder(
@@ -175,7 +175,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF2E7D32)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF2E7D32)),
                         ),
                       ),
                       validator: (value) {
@@ -289,7 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 const SizedBox(height: 20),
-                
+
                 // SEGURIDAD: No mostrar credenciales en el código
                 // Los usuarios deben ingresar sus credenciales manualmente
                 // Las contraseñas NO se pre-llenan por seguridad

@@ -5,6 +5,9 @@ import '../models/ruta.dart';
 import '../models/usuario.dart';
 import '../models/notificacion.dart';
 import '../models/empresa.dart';
+import '../models/trip.dart';
+import '../models/user_report.dart';
+import '../models/rating.dart';
 
 class AdminApiService {
   static const String baseUrl = 'http://localhost:3000/api';
@@ -529,6 +532,391 @@ class AdminApiService {
       };
     } catch (e) {
       throw Exception('Error al obtener estadísticas: $e');
+    }
+  }
+
+  // === TRIPS (VIAJES) ===
+  Future<List<Trip>> getTrips() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/trips'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> tripsData = data['data'] ?? [];
+        return tripsData.map((json) => Trip.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener viajes');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<List<Trip>> getCompletedTrips() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/trips/completed/all'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> tripsData = data['data'] ?? [];
+        return tripsData.map((json) => Trip.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener viajes completados');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<List<Trip>> getTripsByDriver(int driverId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/trips/driver/$driverId'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> tripsData = data['data'] ?? [];
+        return tripsData.map((json) => Trip.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener viajes del conductor');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<List<Trip>> getTripsByRoute(String routeId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/trips/route/$routeId'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> tripsData = data['data'] ?? [];
+        return tripsData.map((json) => Trip.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener viajes de la ruta');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Trip> createTrip(Map<String, dynamic> tripData) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/trips'),
+        headers: headers,
+        body: json.encode(tripData),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          return Trip.fromJson(data['data']);
+        } else {
+          throw Exception(data['message'] ?? data['error'] ?? 'Error al crear viaje');
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['message'] ?? errorData['error'] ?? 'Error al crear viaje: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error al crear viaje: ${e.toString()}');
+    }
+  }
+
+  Future<Trip> startTrip(int tripId, {double? latitude, double? longitude}) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.put(
+        Uri.parse('$baseUrl/trips/$tripId/start'),
+        headers: headers,
+        body: json.encode({
+          if (latitude != null) 'latitude': latitude,
+          if (longitude != null) 'longitude': longitude,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Trip.fromJson(data['data']);
+      } else {
+        throw Exception('Error al iniciar viaje');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Trip> completeTrip(int tripId, {
+    double? latitude,
+    double? longitude,
+    int? passengerCount,
+    String? notes,
+    String? issues,
+  }) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.put(
+        Uri.parse('$baseUrl/trips/$tripId/complete'),
+        headers: headers,
+        body: json.encode({
+          if (latitude != null) 'latitude': latitude,
+          if (longitude != null) 'longitude': longitude,
+          if (passengerCount != null) 'passenger_count': passengerCount,
+          if (notes != null) 'notes': notes,
+          if (issues != null) 'issues': issues,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Trip.fromJson(data['data']);
+      } else {
+        throw Exception('Error al completar viaje');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Trip> cancelTrip(int tripId, {String? reason}) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.put(
+        Uri.parse('$baseUrl/trips/$tripId/cancel'),
+        headers: headers,
+        body: json.encode({
+          if (reason != null) 'reason': reason,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Trip.fromJson(data['data']);
+      } else {
+        throw Exception('Error al cancelar viaje');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getPunctualityStats() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/trips/stats/punctuality'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? {};
+      } else {
+        throw Exception('Error al obtener estadísticas de puntualidad');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  // === USER REPORTS (REPORTES DE USUARIOS) ===
+  Future<List<UserReport>> getUserReports() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user-reports'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> reportsData = data['data'] ?? [];
+        return reportsData.map((json) => UserReport.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener reportes');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<List<UserReport>> getPendingReports() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user-reports/pending/all'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> reportsData = data['data'] ?? [];
+        return reportsData.map((json) => UserReport.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener reportes pendientes');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<UserReport> createUserReport(Map<String, dynamic> reportData) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/user-reports'),
+        headers: headers,
+        body: json.encode(reportData),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          return UserReport.fromJson(data['data']);
+        } else {
+          throw Exception(data['message'] ?? data['error'] ?? 'Error al crear reporte');
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['message'] ?? errorData['error'] ?? 'Error al crear reporte: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error al crear reporte: ${e.toString()}');
+    }
+  }
+
+  Future<UserReport> reviewReport(int reportId, {
+    String? status,
+    String? adminResponse,
+    String? priority,
+  }) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.put(
+        Uri.parse('$baseUrl/user-reports/$reportId/review'),
+        headers: headers,
+        body: json.encode({
+          if (status != null) 'status': status,
+          if (adminResponse != null) 'admin_response': adminResponse,
+          if (priority != null) 'priority': priority,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return UserReport.fromJson(data['data']);
+      } else {
+        throw Exception('Error al revisar reporte');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  // === RATINGS (CALIFICACIONES) ===
+  Future<List<Rating>> getRatings() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ratings'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> ratingsData = data['data'] ?? [];
+        return ratingsData.map((json) => Rating.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener calificaciones');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<List<Rating>> getRatingsByDriver(int driverId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ratings/driver/$driverId'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> ratingsData = data['data'] ?? [];
+        return ratingsData.map((json) => Rating.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener calificaciones del conductor');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getDriverRatingStats(int driverId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ratings/stats/driver/$driverId'),
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? {};
+      } else {
+        throw Exception('Error al obtener estadísticas de calificaciones');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Rating> createRating(Map<String, dynamic> ratingData) async {
+    try {
+      final headers = _getHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/ratings'),
+        headers: headers,
+        body: json.encode(ratingData),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          return Rating.fromJson(data['data']);
+        } else {
+          throw Exception(data['message'] ?? data['error'] ?? 'Error al crear calificación');
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['message'] ?? errorData['error'] ?? 'Error al crear calificación: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error al crear calificación: ${e.toString()}');
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/ruta.dart';
+import '../screens/map_screen.dart';
 
 class RutaCard extends StatelessWidget {
   final Ruta ruta;
@@ -277,15 +278,10 @@ class RutaCard extends StatelessWidget {
   }
 
   void _showOnMap(BuildContext context) {
-    // TODO: Implementar navegación al mapa con la ruta
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Mostrando ${ruta.name} en el mapa'),
-        action: SnackBarAction(
-          label: 'Ver',
-          onPressed: () {
-            // Navegar al mapa con la ruta
-          },
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MapScreen(
+          initialRouteId: ruta.routeId,
         ),
       ),
     );

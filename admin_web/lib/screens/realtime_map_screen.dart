@@ -36,8 +36,13 @@ class _RealtimeMapScreenState extends State<RealtimeMapScreen> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     final adminProvider = Provider.of<AdminProvider>(context, listen: false);
     await adminProvider.loadBusLocations();
+    // El Provider ya notifica a los listeners, pero forzamos rebuild si es necesario
+    if (mounted) {
+      setState(() {}); // Forzar rebuild para mostrar cambios
+    }
   }
 
   List<BusLocation> _filterBuses(List<BusLocation> buses) {

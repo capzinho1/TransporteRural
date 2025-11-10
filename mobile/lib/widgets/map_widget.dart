@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import 'osm_map_widget.dart';
 
 /// Widget de mapa usando OpenStreetMap

@@ -238,13 +238,15 @@ router.post('/login', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, role, notification_tokens } = req.body;
+    const { name, email, role, notification_tokens, active, driver_status } = req.body;
     
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.role = role;
     if (notification_tokens !== undefined) updateData.notification_tokens = notification_tokens;
+    if (active !== undefined) updateData.active = active;
+    if (driver_status !== undefined && role === 'driver') updateData.driver_status = driver_status;
     
     const { data: usuarioActualizado, error } = await supabase
       .from('users')

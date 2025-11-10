@@ -13,6 +13,62 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   String _selectedReport = 'overview';
 
+  Future<Map<String, dynamic>> _getPunctualityStats() async {
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      return await adminProvider.apiService.getPunctualityStats();
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getTripsStats() async {
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      final trips = await adminProvider.apiService.getTrips();
+      final completedTrips = trips.where((t) => t.status == 'completed').length;
+      // Calcular promedio diario (simplificado)
+      return {'dailyAverage': completedTrips ~/ 30}; // Aproximado
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<int> _getDriverTripsCount(int driverId) async {
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      final trips = await adminProvider.apiService.getTripsByDriver(driverId);
+      return trips.where((t) => t.status == 'completed').length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<double> _getDriverWorkHours(int driverId) async {
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      final trips = await adminProvider.apiService.getTripsByDriver(driverId);
+      final completedTrips = trips
+          .where((t) => t.status == 'completed' && t.durationMinutes != null);
+      double totalMinutes = completedTrips.fold(
+          0.0, (sum, trip) => sum + (trip.durationMinutes ?? 0).toDouble());
+      return totalMinutes / 60; // Convertir a horas
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Future<double> _getDriverRating(int driverId) async {
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      final stats =
+          await adminProvider.apiService.getDriverRatingStats(driverId);
+      return stats['average'] ?? 0.0;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,12 +95,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     children: [
                       Consumer<AdminProvider>(
                         builder: (context, adminProvider, child) {
-                          final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+                          final isSuperAdmin =
+                              adminProvider.currentUser?.isSuperAdmin ?? false;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isSuperAdmin ? 'Reportes del Sistema' : 'Reportes de la Empresa',
+                                isSuperAdmin
+                                    ? 'Reportes del Sistema'
+                                    : 'Reportes de la Empresa',
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
@@ -53,8 +112,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 isSuperAdmin
-                                  ? 'Estadísticas a gran escala de todas las empresas'
-                                  : 'Estadísticas y métricas de tu empresa',
+                                    ? 'Estadísticas a gran escala de todas las empresas'
+                                    : 'Estadísticas y métricas de tu empresa',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -70,7 +129,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     children: [
                       Consumer<AdminProvider>(
                         builder: (context, adminProvider, child) {
-                          final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+                          final isSuperAdmin =
+                              adminProvider.currentUser?.isSuperAdmin ?? false;
                           return SegmentedButton<String>(
                             segments: isSuperAdmin
                                 ? const [
@@ -135,8 +195,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
               // Content based on selected report and role
               Consumer<AdminProvider>(
                 builder: (context, adminProvider, child) {
-                  final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
-                  
+                  final isSuperAdmin =
+                      adminProvider.currentUser?.isSuperAdmin ?? false;
+
                   if (isSuperAdmin) {
                     // Reportes para Super Admin
                     if (_selectedReport == 'overview') {
@@ -255,13 +316,58 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ]),
               DataRow(cells: [
                 const DataCell(Text('Promedio de recorridos/día')),
-                const DataCell(Text('N/A')),
-                DataCell(_buildStatusBadge('Pendiente', Colors.grey)),
+                DataCell(
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _getTripsStats(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final dailyAvg = snapshot.data!['dailyAverage'] ?? 0;
+                        return Text(dailyAvg.toString());
+                      }
+                      return const Text('0');
+                    },
+                  ),
+                ),
+                DataCell(_buildStatusBadge('Normal', Colors.green)),
               ]),
               DataRow(cells: [
-                const DataCell(Text('Satisfacción usuarios')),
-                const DataCell(Text('N/A')),
-                DataCell(_buildStatusBadge('Pendiente', Colors.grey)),
+                const DataCell(Text('Puntualidad promedio')),
+                DataCell(
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _getPunctualityStats(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final punctuality =
+                            snapshot.data!['overallPunctuality'] ?? 0.0;
+                        return Text('${punctuality.toStringAsFixed(1)}%');
+                      }
+                      return const Text('N/A');
+                    },
+                  ),
+                ),
+                DataCell(
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _getPunctualityStats(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final punctuality =
+                            snapshot.data!['overallPunctuality'] ?? 0.0;
+                        Color color = punctuality >= 90
+                            ? Colors.green
+                            : punctuality >= 70
+                                ? Colors.orange
+                                : Colors.red;
+                        String label = punctuality >= 90
+                            ? 'Excelente'
+                            : punctuality >= 70
+                                ? 'Bueno'
+                                : 'Mejorar';
+                        return _buildStatusBadge(label, color);
+                      }
+                      return _buildStatusBadge('Pendiente', Colors.grey);
+                    },
+                  ),
+                ),
               ]),
             ],
           ),
@@ -368,9 +474,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
             rows: conductores.map((conductor) {
               return DataRow(cells: [
                 DataCell(Text(conductor.name)),
-                const DataCell(Text('0')),
-                const DataCell(Text('0h')),
-                DataCell(_buildRatingStars(0)),
+                DataCell(
+                  FutureBuilder<int>(
+                    future: _getDriverTripsCount(conductor.id),
+                    builder: (context, snapshot) {
+                      return Text('${snapshot.data ?? 0}');
+                    },
+                  ),
+                ),
+                DataCell(
+                  FutureBuilder<double>(
+                    future: _getDriverWorkHours(conductor.id),
+                    builder: (context, snapshot) {
+                      return Text(
+                          '${(snapshot.data ?? 0).toStringAsFixed(1)}h');
+                    },
+                  ),
+                ),
+                DataCell(
+                  FutureBuilder<double>(
+                    future: _getDriverRating(conductor.id),
+                    builder: (context, snapshot) {
+                      final rating = snapshot.data ?? 0.0;
+                      return _buildRatingStars(rating.round());
+                    },
+                  ),
+                ),
               ]);
             }).toList(),
           ),
@@ -574,7 +703,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   // === REPORTES PARA SUPER ADMIN ===
-  
+
   Widget _buildSuperAdminOverviewReport(AdminProvider adminProvider) {
     final stats = adminProvider.estadisticas;
 
@@ -654,7 +783,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         const SizedBox(height: 16),
         if (stats['statsPorEmpresa'] != null)
-          ...(stats['statsPorEmpresa'] as Map<String, dynamic>).entries.map((entry) {
+          ...(stats['statsPorEmpresa'] as Map<String, dynamic>)
+              .entries
+              .map((entry) {
             final empresaStats = entry.value as Map<String, dynamic>;
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
@@ -682,11 +813,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       spacing: 24,
                       runSpacing: 12,
                       children: [
-                        _buildMiniStat('Buses', '${empresaStats['totalBuses'] ?? 0}', Colors.blue),
-                        _buildMiniStat('Activos', '${empresaStats['busesActivos'] ?? 0}', Colors.green),
-                        _buildMiniStat('Rutas', '${empresaStats['totalRutas'] ?? 0}', Colors.purple),
-                        _buildMiniStat('Usuarios', '${empresaStats['totalUsuarios'] ?? 0}', Colors.indigo),
-                        _buildMiniStat('Conductores', '${empresaStats['conductores'] ?? 0}', Colors.orange),
+                        _buildMiniStat('Buses',
+                            '${empresaStats['totalBuses'] ?? 0}', Colors.blue),
+                        _buildMiniStat(
+                            'Activos',
+                            '${empresaStats['busesActivos'] ?? 0}',
+                            Colors.green),
+                        _buildMiniStat(
+                            'Rutas',
+                            '${empresaStats['totalRutas'] ?? 0}',
+                            Colors.purple),
+                        _buildMiniStat(
+                            'Usuarios',
+                            '${empresaStats['totalUsuarios'] ?? 0}',
+                            Colors.indigo),
+                        _buildMiniStat(
+                            'Conductores',
+                            '${empresaStats['conductores'] ?? 0}',
+                            Colors.orange),
                       ],
                     ),
                   ],
@@ -710,7 +854,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-
         if (statsPorEmpresa != null && statsPorEmpresa.isNotEmpty)
           Card(
             elevation: 2,
@@ -818,14 +961,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
               DataColumn(label: Text('Pasajeros'), numeric: true),
             ],
             rows: adminProvider.empresas.map((empresa) {
-              final usuariosEmpresa = usuarios.where((u) => u.companyId == empresa.id).toList();
+              final usuariosEmpresa =
+                  usuarios.where((u) => u.companyId == empresa.id).toList();
               return DataRow(
                 cells: [
                   DataCell(Text(empresa.name)),
                   DataCell(Text('${usuariosEmpresa.length}')),
-                  DataCell(Text('${usuariosEmpresa.where((u) => u.role == 'company_admin').length}')),
-                  DataCell(Text('${usuariosEmpresa.where((u) => u.role == 'driver').length}')),
-                  DataCell(Text('${usuariosEmpresa.where((u) => u.role == 'user').length}')),
+                  DataCell(Text(
+                      '${usuariosEmpresa.where((u) => u.role == 'company_admin').length}')),
+                  DataCell(Text(
+                      '${usuariosEmpresa.where((u) => u.role == 'driver').length}')),
+                  DataCell(Text(
+                      '${usuariosEmpresa.where((u) => u.role == 'user').length}')),
                 ],
               );
             }).toList(),

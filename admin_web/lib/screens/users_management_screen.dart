@@ -121,14 +121,32 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _showUserDialog(context, usuario),
-                      tooltip: 'Editar',
+                      icon: Icon(
+                        Icons.edit,
+                        color: usuario.role == 'company_admin'
+                            ? Colors.grey
+                            : Colors.blue,
+                      ),
+                      onPressed: usuario.role == 'company_admin'
+                          ? null
+                          : () => _showUserDialog(context, usuario),
+                      tooltip: usuario.role == 'company_admin'
+                          ? 'No se puede editar al administrador de la empresa'
+                          : 'Editar',
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(context, usuario),
-                      tooltip: 'Eliminar',
+                      icon: Icon(
+                        Icons.delete,
+                        color: usuario.role == 'company_admin'
+                            ? Colors.grey
+                            : Colors.red,
+                      ),
+                      onPressed: usuario.role == 'company_admin'
+                          ? null
+                          : () => _confirmDelete(context, usuario),
+                      tooltip: usuario.role == 'company_admin'
+                          ? 'No se puede eliminar al administrador de la empresa'
+                          : 'Eliminar',
                     ),
                   ],
                 ),
@@ -178,6 +196,17 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   }
 
   void _showUserDialog(BuildContext context, Usuario? usuario) {
+    // Prevenir edición del administrador de la empresa
+    if (usuario != null && usuario.role == 'company_admin') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede editar al administrador de la empresa'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final nameController = TextEditingController(text: usuario?.name ?? '');
     final emailController = TextEditingController(text: usuario?.email ?? '');
     String selectedRole = usuario?.role ?? 'user';
@@ -327,6 +356,17 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   }
 
   void _confirmDelete(BuildContext context, Usuario usuario) {
+    // Prevenir eliminación del administrador de la empresa
+    if (usuario.role == 'company_admin') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede eliminar al administrador de la empresa'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -341,6 +381,21 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
             onPressed: () async {
               final adminProvider =
                   Provider.of<AdminProvider>(context, listen: false);
+              
+              // Verificar nuevamente antes de eliminar
+              if (usuario.role == 'company_admin') {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No se puede eliminar al administrador de la empresa'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+                return;
+              }
+
               final success = await adminProvider.deleteUsuario(usuario.id);
 
               if (success && context.mounted) {

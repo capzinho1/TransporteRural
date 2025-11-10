@@ -73,19 +73,19 @@ class _SplashScreenState extends State<SplashScreen>
                   opacity: _fadeAnimation,
                   child: ScaleTransition(
                     scale: _scaleAnimation,
-                    child: Column(
+                    child: const Column(
                       children: [
                         // Logo GeoRu
-                        const GeoRuLogo(
+                        GeoRuLogo(
                           size: 120,
                           showText: false,
                           showBackground: true,
                           backgroundColor: Colors.white,
                         ),
-                        const SizedBox(height: 30),
+                        SizedBox(height: 30),
 
                         // Título de la app con logo GeoRu
-                        const GeoRuLogo(
+                        GeoRuLogo(
                           size: 0,
                           showText: true,
                           showSlogan: true,

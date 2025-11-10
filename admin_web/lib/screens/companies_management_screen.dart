@@ -7,7 +7,8 @@ class CompaniesManagementScreen extends StatefulWidget {
   const CompaniesManagementScreen({super.key});
 
   @override
-  State<CompaniesManagementScreen> createState() => _CompaniesManagementScreenState();
+  State<CompaniesManagementScreen> createState() =>
+      _CompaniesManagementScreenState();
 }
 
 class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
@@ -93,14 +94,15 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
     );
   }
 
-  Widget _buildEmpresaCard(BuildContext context, Empresa empresa, AdminProvider adminProvider) {
+  Widget _buildEmpresaCard(
+      BuildContext context, Empresa empresa, AdminProvider adminProvider) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: empresa.active ? Colors.green : Colors.grey,
-          child: Icon(
+          child: const Icon(
             Icons.business,
             color: Colors.white,
           ),
@@ -149,8 +151,13 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
                       ],
                     ),
                     onTap: () {
+                      final dialogContext = context;
+                      Navigator.pop(dialogContext);
                       Future.delayed(const Duration(milliseconds: 100), () {
-                        _showEditEmpresaDialog(context, empresa, adminProvider);
+                        if (dialogContext.mounted) {
+                          _showEditEmpresaDialog(
+                              dialogContext, empresa, adminProvider);
+                        }
                       });
                     },
                   ),
@@ -167,8 +174,13 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
                       ],
                     ),
                     onTap: () {
+                      final dialogContext = context;
+                      Navigator.pop(dialogContext);
                       Future.delayed(const Duration(milliseconds: 100), () {
-                        _toggleEmpresaStatus(context, empresa, adminProvider);
+                        if (dialogContext.mounted) {
+                          _toggleEmpresaStatus(
+                              dialogContext, empresa, adminProvider);
+                        }
                       });
                     },
                   ),
@@ -181,8 +193,13 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
                       ],
                     ),
                     onTap: () {
+                      final dialogContext = context;
+                      Navigator.pop(dialogContext);
                       Future.delayed(const Duration(milliseconds: 100), () {
-                        _showDeleteConfirmDialog(context, empresa, adminProvider);
+                        if (dialogContext.mounted) {
+                          _showDeleteConfirmDialog(
+                              dialogContext, empresa, adminProvider);
+                        }
                       });
                     },
                   ),
@@ -196,336 +213,374 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
     );
   }
 
-  void _showCreateEmpresaDialog(BuildContext context, AdminProvider adminProvider) {
+  void _showCreateEmpresaDialog(
+      BuildContext context, AdminProvider adminProvider) {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     final phoneController = TextEditingController();
     final addressController = TextEditingController();
-    bool _obscurePassword = true;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Nueva Empresa'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre *',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email *',
-                    border: OutlineInputBorder(),
-                    helperText: 'Será el email del administrador de la empresa',
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña del Admin *',
-                    border: const OutlineInputBorder(),
-                    helperText: 'Contraseña para acceder como admin de la empresa',
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+      builder: (context) {
+        bool obscurePassword = true;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Nueva Empresa'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre *',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  obscureText: _obscurePassword,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email *',
+                        border: OutlineInputBorder(),
+                        helperText:
+                            'Será el email del administrador de la empresa',
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña del Admin *',
+                        border: const OutlineInputBorder(),
+                        helperText:
+                            'Contraseña para acceder como admin de la empresa',
+                        suffixIcon: IconButton(
+                          icon: Icon(obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off),
+                          onPressed: () {
+                            setState(() {
+                              obscurePassword = !obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: obscurePassword,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Teléfono',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: addressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Dirección',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.phone,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Dirección',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('El nombre es requerido')),
+                      );
+                      return;
+                    }
+
+                    if (emailController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('El email es requerido')),
+                      );
+                      return;
+                    }
+
+                    if (passwordController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('La contraseña es requerida')),
+                      );
+                      return;
+                    }
+
+                    if (passwordController.text.length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'La contraseña debe tener al menos 6 caracteres')),
+                      );
+                      return;
+                    }
+
+                    final nuevaEmpresa = Empresa(
+                      id: 0,
+                      name: nameController.text,
+                      email: emailController.text,
+                      password: passwordController.text,
+                      phone: phoneController.text.isEmpty
+                          ? null
+                          : phoneController.text,
+                      address: addressController.text.isEmpty
+                          ? null
+                          : addressController.text,
+                      active: true,
+                    );
+
+                    try {
+                      final success =
+                          await adminProvider.createEmpresa(nuevaEmpresa);
+                      if (!context.mounted) return;
+
+                      if (success) {
+                        Navigator.pop(context);
+                        // Recargar la lista de empresas
+                        await adminProvider.loadEmpresas();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Empresa creada exitosamente. El admin puede acceder con el email y contraseña proporcionados.'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 4),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Error: ${adminProvider.error ?? "Error desconocido"}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Crear'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('El nombre es requerido')),
-                  );
-                  return;
-                }
-                
-                if (emailController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('El email es requerido')),
-                  );
-                  return;
-                }
-                
-                if (passwordController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('La contraseña es requerida')),
-                  );
-                  return;
-                }
-                
-                if (passwordController.text.length < 6) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres')),
-                  );
-                  return;
-                }
-
-                final nuevaEmpresa = Empresa(
-                  id: 0,
-                  name: nameController.text,
-                  email: emailController.text,
-                  password: passwordController.text,
-                  phone: phoneController.text.isEmpty ? null : phoneController.text,
-                  address: addressController.text.isEmpty ? null : addressController.text,
-                  active: true,
-                );
-
-                try {
-                  final success = await adminProvider.createEmpresa(nuevaEmpresa);
-                  if (context.mounted && success) {
-                    Navigator.pop(context);
-                    // Recargar la lista de empresas
-                    await adminProvider.loadEmpresas();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Empresa creada exitosamente. El admin puede acceder con el email y contraseña proporcionados.'),
-                        backgroundColor: Colors.green,
-                        duration: Duration(seconds: 4),
-                      ),
-                    );
-                  } else if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: ${adminProvider.error ?? "Error desconocido"}'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: Colors.red,
-                        duration: const Duration(seconds: 5),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Crear'),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
-  void _showEditEmpresaDialog(BuildContext context, Empresa empresa, AdminProvider adminProvider) {
+  void _showEditEmpresaDialog(
+      BuildContext context, Empresa empresa, AdminProvider adminProvider) {
     final nameController = TextEditingController(text: empresa.name);
     final emailController = TextEditingController(text: empresa.email);
     final passwordController = TextEditingController();
     final phoneController = TextEditingController(text: empresa.phone ?? '');
-    final addressController = TextEditingController(text: empresa.address ?? '');
-    bool _obscurePassword = true;
+    final addressController =
+        TextEditingController(text: empresa.address ?? '');
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Editar Empresa'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email *',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Nueva Contraseña (opcional)',
-                  border: const OutlineInputBorder(),
-                  helperText: 'Dejar vacío para mantener la contraseña actual',
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: _obscurePassword,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Teléfono',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressController,
-                decoration: const InputDecoration(
-                  labelText: 'Dirección',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El nombre es requerido')),
-                );
-                return;
-              }
-              
-              if (emailController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El email es requerido')),
-                );
-                return;
-              }
-              
-              if (passwordController.text.isNotEmpty && passwordController.text.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres')),
-                );
-                return;
-              }
-
-              final empresaActualizada = empresa.copyWith(
-                name: nameController.text,
-                email: emailController.text,
-                password: passwordController.text.isEmpty ? null : passwordController.text,
-                phone: phoneController.text.isEmpty ? null : phoneController.text,
-                address: addressController.text.isEmpty ? null : addressController.text,
-              );
-
-              try {
-                await adminProvider.updateEmpresa(empresa.id, empresaActualizada);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Empresa actualizada exitosamente'),
-                      backgroundColor: Colors.green,
+      builder: (context) {
+        bool obscurePassword = true;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Editar Empresa'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre *',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: Colors.red,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email *',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
                     ),
-                  );
-                }
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Nueva Contraseña (opcional)',
+                        border: const OutlineInputBorder(),
+                        helperText:
+                            'Dejar vacío para mantener la contraseña actual',
+                        suffixIcon: IconButton(
+                          icon: Icon(obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off),
+                          onPressed: () {
+                            setState(() {
+                              obscurePassword = !obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: obscurePassword,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Teléfono',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: addressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Dirección',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('El nombre es requerido')),
+                      );
+                      return;
+                    }
+
+                    if (emailController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('El email es requerido')),
+                      );
+                      return;
+                    }
+
+                    if (passwordController.text.isNotEmpty &&
+                        passwordController.text.length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'La contraseña debe tener al menos 6 caracteres')),
+                      );
+                      return;
+                    }
+
+                    final empresaActualizada = empresa.copyWith(
+                      name: nameController.text,
+                      email: emailController.text,
+                      password: passwordController.text.isEmpty
+                          ? null
+                          : passwordController.text,
+                      phone: phoneController.text.isEmpty
+                          ? null
+                          : phoneController.text,
+                      address: addressController.text.isEmpty
+                          ? null
+                          : addressController.text,
+                    );
+
+                    try {
+                      await adminProvider.updateEmpresa(
+                          empresa.id, empresaActualizada);
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Empresa actualizada exitosamente'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  void _toggleEmpresaStatus(BuildContext context, Empresa empresa, AdminProvider adminProvider) async {
+  void _toggleEmpresaStatus(BuildContext context, Empresa empresa,
+      AdminProvider adminProvider) async {
     try {
       final empresaActualizada = empresa.copyWith(active: !empresa.active);
       await adminProvider.updateEmpresa(empresa.id, empresaActualizada);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              empresa.active
-                  ? 'Empresa desactivada'
-                  : 'Empresa activada',
-            ),
-            backgroundColor: Colors.green,
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            empresa.active ? 'Empresa desactivada' : 'Empresa activada',
           ),
-        );
-      }
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  void _showDeleteConfirmDialog(BuildContext context, Empresa empresa, AdminProvider adminProvider) {
+  void _showDeleteConfirmDialog(
+      BuildContext context, Empresa empresa, AdminProvider adminProvider) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar Empresa'),
-        content: Text('¿Estás seguro de que quieres eliminar "${empresa.name}"? Esta acción no se puede deshacer.'),
+        content: Text(
+            '¿Estás seguro de que quieres eliminar "${empresa.name}"? Esta acción no se puede deshacer.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -535,33 +590,30 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
             onPressed: () async {
               try {
                 await adminProvider.deleteEmpresa(empresa.id);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Empresa eliminada exitosamente'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Empresa eliminada exitosamente'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Eliminar', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 }
-

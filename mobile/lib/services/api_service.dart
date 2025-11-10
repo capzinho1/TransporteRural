@@ -4,6 +4,9 @@ import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
 import '../models/notificacion.dart';
+import '../models/trip.dart';
+import '../models/rating.dart';
+import '../models/user_report.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:3000/api';
@@ -183,6 +186,95 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error: $e');
+    }
+  }
+
+  // === TRIPS (VIAJES) ===
+  Future<List<Trip>> getTrips() async {
+    try {
+      final response = await _makeRequest('GET', '/trips');
+      final List<dynamic> tripsData = response['data'] ?? [];
+      return tripsData.map((json) => Trip.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al obtener viajes: $e');
+    }
+  }
+
+  Future<List<Trip>> getCompletedTrips() async {
+    try {
+      final response = await _makeRequest('GET', '/trips/completed/all');
+      final List<dynamic> tripsData = response['data'] ?? [];
+      return tripsData.map((json) => Trip.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al obtener viajes completados: $e');
+    }
+  }
+
+  Future<Trip> getTrip(int id) async {
+    try {
+      final response = await _makeRequest('GET', '/trips/$id');
+      return Trip.fromJson(response['data']);
+    } catch (e) {
+      throw Exception('Error al obtener viaje: $e');
+    }
+  }
+
+  // === RATINGS (CALIFICACIONES) ===
+  Future<Rating> createRating(Map<String, dynamic> ratingData) async {
+    try {
+      final response = await _makeRequest('POST', '/ratings', body: ratingData);
+      return Rating.fromJson(response['data']);
+    } catch (e) {
+      throw Exception('Error al crear calificación: $e');
+    }
+  }
+
+  Future<List<Rating>> getRatingsByDriver(int driverId) async {
+    try {
+      final response = await _makeRequest('GET', '/ratings/driver/$driverId');
+      final List<dynamic> ratingsData = response['data'] ?? [];
+      return ratingsData.map((json) => Rating.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al obtener calificaciones: $e');
+    }
+  }
+
+  // === USER REPORTS (REPORTES DE USUARIOS) ===
+  Future<UserReport> createUserReport(Map<String, dynamic> reportData) async {
+    try {
+      final response = await _makeRequest('POST', '/user-reports', body: reportData);
+      return UserReport.fromJson(response['data']);
+    } catch (e) {
+      throw Exception('Error al crear reporte: $e');
+    }
+  }
+
+  Future<List<UserReport>> getUserReports() async {
+    try {
+      final response = await _makeRequest('GET', '/user-reports');
+      final List<dynamic> reportsData = response['data'] ?? [];
+      return reportsData.map((json) => UserReport.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al obtener reportes: $e');
+    }
+  }
+
+  Future<UserReport> getUserReport(int id) async {
+    try {
+      final response = await _makeRequest('GET', '/user-reports/$id');
+      return UserReport.fromJson(response['data']);
+    } catch (e) {
+      throw Exception('Error al obtener reporte: $e');
+    }
+  }
+
+  Future<List<UserReport>> getUserReportsByBus(String busId) async {
+    try {
+      final response = await _makeRequest('GET', '/user-reports/bus/$busId');
+      final List<dynamic> reportsData = response['data'] ?? [];
+      return reportsData.map((json) => UserReport.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Error al obtener reportes del bus: $e');
     }
   }
 

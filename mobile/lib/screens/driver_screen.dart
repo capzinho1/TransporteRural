@@ -26,7 +26,8 @@ class _DriverScreenState extends State<DriverScreen> {
   Color? _floatingNotificationColor;
   IconData? _floatingNotificationIcon;
   Timer? _notificationTimer;
-  Set<int> _shownNotificationIds = {}; // IDs de notificaciones ya mostradas
+  final Set<int> _shownNotificationIds =
+      {}; // IDs de notificaciones ya mostradas
 
   @override
   void initState() {
@@ -46,17 +47,18 @@ class _DriverScreenState extends State<DriverScreen> {
     super.dispose();
   }
 
-  void _showFloatingNotification(String message, Color backgroundColor, {IconData? icon}) {
+  void _showFloatingNotification(String message, Color backgroundColor,
+      {IconData? icon}) {
     // Cancelar notificación anterior si existe
     _notificationTimer?.cancel();
-    
+
     // Mostrar nueva notificación
     setState(() {
       _floatingNotification = message;
       _floatingNotificationColor = backgroundColor;
       _floatingNotificationIcon = icon;
     });
-    
+
     // Ocultar después de 15 segundos
     _notificationTimer = Timer(const Duration(seconds: 15), () {
       if (mounted) {
@@ -82,17 +84,17 @@ class _DriverScreenState extends State<DriverScreen> {
 
   Future<void> _loadDriverData() async {
     if (!mounted) return;
-    
+
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     await appProvider.loadBusLocations();
     await appProvider.loadRutas();
-    
+
     // Cargar notificaciones también
     await appProvider.loadNotifications();
-    
+
     // Detectar y mostrar nuevas notificaciones
     _checkForNewNotifications(appProvider);
-    
+
     // Buscar el bus asignado a este conductor
     final driverId = appProvider.currentUser?.id;
     if (driverId != null) {
@@ -100,11 +102,11 @@ class _DriverScreenState extends State<DriverScreen> {
         final myBus = appProvider.busLocations.firstWhere(
           (bus) => bus.driverId == driverId,
         );
-        
+
         // Verificar si el routeId cambió o se removió
         final previousRouteId = _myBus?.routeId;
         final currentRouteId = myBus.routeId;
-        
+
         if (mounted) {
           setState(() {
             _myBus = myBus;
@@ -122,7 +124,7 @@ class _DriverScreenState extends State<DriverScreen> {
                 _assignedRoute = route;
               });
             }
-            
+
             // Si la ruta cambió, mostrar notificación flotante
             if (previousRouteId != currentRouteId && previousRouteId != null) {
               if (mounted) {
@@ -145,18 +147,20 @@ class _DriverScreenState extends State<DriverScreen> {
           // No hay ruta asignada, limpiar
           if (mounted) {
             // Si antes tenía ruta y ahora no, mostrar notificación y detener seguimiento
-            if (previousRouteId != null && previousRouteId.isNotEmpty && _assignedRoute != null) {
+            if (previousRouteId != null &&
+                previousRouteId.isNotEmpty &&
+                _assignedRoute != null) {
               final previousRouteName = _assignedRoute!.name;
-              
+
               // Detener el seguimiento de ubicación si está activo
               if (_isTrackingLocation) {
                 _stopLocationTracking();
               }
-              
+
               setState(() {
                 _assignedRoute = null;
               });
-              
+
               // Mostrar notificación flotante
               _showFloatingNotification(
                 'Ruta "$previousRouteName" removida por el administrador',
@@ -187,7 +191,8 @@ class _DriverScreenState extends State<DriverScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No hay ruta asignada. No puedes actualizar la ubicación.'),
+            content: Text(
+                'No hay ruta asignada. No puedes actualizar la ubicación.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -203,7 +208,8 @@ class _DriverScreenState extends State<DriverScreen> {
         if (_myBus!.id == null) {
           throw Exception('El bus no tiene ID asignado');
         }
-        
+
+        // Actualizar ubicación en el backend
         await appProvider.apiService.updateBusLocation(
           _myBus!.id!,
           {
@@ -212,29 +218,41 @@ class _DriverScreenState extends State<DriverScreen> {
             'status': _myBus!.status,
           },
         );
-        
-        // Recargar ubicaciones
-        await appProvider.loadBusLocations();
-        await _loadDriverData();
 
+        // Actualizar el estado local del bus con la nueva ubicación
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ubicación actualizada ✓'),
-              duration: Duration(seconds: 1),
-              backgroundColor: Colors.green,
-            ),
-          );
+          setState(() {
+            _myBus = _myBus!.copyWith(
+              latitude: appProvider.currentPosition!.latitude,
+              longitude: appProvider.currentPosition!.longitude,
+              lastUpdate: DateTime.now().toIso8601String(),
+            );
+          });
         }
+
+        // Recargar datos del conductor (sin mostrar mensaje de error si falla)
+        try {
+          await appProvider.loadBusLocations();
+          await _loadDriverData();
+        } catch (e) {
+          // Ignorar errores de recarga, la actualización ya se hizo
+          print(
+              '⚠️ Error al recargar datos después de actualizar ubicación: $e');
+        }
+
+        // No mostrar mensaje de éxito para no interrumpir el flujo
+        // El conductor verá la actualización en la UI automáticamente
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error al actualizar ubicación: $e'),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
+        print('❌ Error al actualizar ubicación: $e');
       }
     }
   }
@@ -244,14 +262,15 @@ class _DriverScreenState extends State<DriverScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No hay ruta asignada. No puedes iniciar el seguimiento.'),
+            content:
+                Text('No hay ruta asignada. No puedes iniciar el seguimiento.'),
             backgroundColor: Colors.orange,
           ),
         );
       }
       return;
     }
-    
+
     if (_isTrackingLocation) {
       _stopLocationTracking();
       return;
@@ -292,12 +311,13 @@ class _DriverScreenState extends State<DriverScreen> {
     }
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    
+
     try {
       if (_myBus!.id == null) {
         throw Exception('El bus no tiene ID asignado');
       }
-      
+
+      // Actualizar estado en el backend
       await appProvider.apiService.updateBusLocation(
         _myBus!.id!,
         {
@@ -307,14 +327,31 @@ class _DriverScreenState extends State<DriverScreen> {
         },
       );
 
-      await appProvider.loadBusLocations();
-      await _loadDriverData();
+      // Actualizar el estado local inmediatamente
+      if (mounted) {
+        setState(() {
+          _myBus = _myBus!.copyWith(
+            status: newStatus,
+            lastUpdate: DateTime.now().toIso8601String(),
+          );
+        });
+      }
+
+      // Recargar datos del backend
+      try {
+        await appProvider.loadBusLocations();
+        await _loadDriverData();
+      } catch (e) {
+        // Ignorar errores de recarga, la actualización ya se hizo
+        print('⚠️ Error al recargar datos después de cambiar estado: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Estado cambiado a: ${_getStatusLabel(newStatus)}'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -324,9 +361,11 @@ class _DriverScreenState extends State<DriverScreen> {
           SnackBar(
             content: Text('Error al cambiar estado: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
+      print('❌ Error al cambiar estado: $e');
     }
   }
 
@@ -370,17 +409,15 @@ class _DriverScreenState extends State<DriverScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
+                const Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(Icons.drive_eta),
                     SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Vista de Conductor',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 18),
-                      ),
+                    Text(
+                      'Vista de Conductor',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 18),
                     ),
                   ],
                 ),
@@ -510,30 +547,29 @@ class _DriverScreenState extends State<DriverScreen> {
                   children: [
                     // Información del bus
                     _buildBusInfoCard(_myBus!, appProvider),
-                    
+
                     // Mapa con ubicación actual
-                    SizedBox(
+                    const SizedBox(
                       height: 300,
                       child: OsmMapWidget(
                         showMyLocation: true,
                       ),
                     ),
 
-                // Controles de conductor (solo si hay ruta asignada)
-                if (_assignedRoute != null)
-                  _buildDriverControls(_myBus!),
+                    // Controles de conductor (solo si hay ruta asignada)
+                    if (_assignedRoute != null) _buildDriverControls(_myBus!),
 
-                // Información de la ruta
-                if (_assignedRoute != null)
-                  _buildRouteInfoCard(_assignedRoute!),
-                
-                // Mensaje cuando no hay ruta asignada
-                if (_assignedRoute == null && _myBus != null)
-                  _buildNoRouteAssignedCard(),
+                    // Información de la ruta
+                    if (_assignedRoute != null)
+                      _buildRouteInfoCard(_assignedRoute!),
 
-                const SizedBox(height: 20),
-              ],
-            ),
+                    // Mensaje cuando no hay ruta asignada
+                    if (_assignedRoute == null && _myBus != null)
+                      _buildNoRouteAssignedCard(),
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
               // Notificación flotante
               if (_floatingNotification != null)
@@ -551,19 +587,19 @@ class _DriverScreenState extends State<DriverScreen> {
 
   void _checkForNewNotifications(AppProvider appProvider) {
     final notifications = appProvider.notifications;
-    
+
     // Encontrar notificaciones nuevas que no hemos mostrado
     for (final notification in notifications) {
       if (!_shownNotificationIds.contains(notification.id)) {
         // Marcar como mostrada
         _shownNotificationIds.add(notification.id);
-        
+
         // Mostrar como notificación flotante
         if (mounted) {
           // Determinar color según el tipo
           Color backgroundColor;
           IconData icon;
-          
+
           switch (notification.type) {
             case 'drivers':
               backgroundColor = Colors.blue;
@@ -581,20 +617,21 @@ class _DriverScreenState extends State<DriverScreen> {
               backgroundColor = Colors.blue;
               icon = Icons.notifications;
           }
-          
+
           // Crear mensaje con título y contenido
           final message = '${notification.title}\n${notification.message}';
-          
+
           _showFloatingNotification(message, backgroundColor, icon: icon);
         }
       }
     }
   }
 
-  Widget _buildFloatingNotification(String message, Color backgroundColor, IconData icon) {
+  Widget _buildFloatingNotification(
+      String message, Color backgroundColor, IconData icon) {
     // Si el mensaje tiene múltiples líneas (título y mensaje), formatearlo mejor
     final displayMessage = message;
-    
+
     return Positioned(
       top: 0,
       left: 0,
@@ -643,7 +680,7 @@ class _DriverScreenState extends State<DriverScreen> {
 
   Widget _buildBusInfoCard(BusLocation bus, AppProvider appProvider) {
     final userName = appProvider.currentUser?.name ?? 'Conductor';
-    
+
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
@@ -799,8 +836,10 @@ class _DriverScreenState extends State<DriverScreen> {
             runSpacing: 8,
             children: [
               _buildStatusButton('en_ruta', 'Iniciar Ruta', Colors.green, bus),
-              _buildStatusButton('finalizado', 'Finalizar Ruta', Colors.blue, bus),
-              _buildStatusButton('inactive', 'Marcar Inactivo', Colors.grey, bus),
+              _buildStatusButton(
+                  'finalizado', 'Finalizar Ruta', Colors.blue, bus),
+              _buildStatusButton(
+                  'inactive', 'Marcar Inactivo', Colors.grey, bus),
             ],
           ),
         ],
@@ -818,7 +857,7 @@ class _DriverScreenState extends State<DriverScreen> {
     return ElevatedButton(
       onPressed: isSelected ? null : () => _changeBusStatus(status),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? color : color.withOpacity(0.1),
+        backgroundColor: isSelected ? color : color.withValues(alpha: 0.1),
         foregroundColor: isSelected ? Colors.white : color,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
@@ -890,15 +929,18 @@ class _DriverScreenState extends State<DriverScreen> {
               builder: (context) {
                 List<String> scheduleList = [];
                 if (route.schedule is List) {
-                  scheduleList = (route.schedule as List).map((e) => e.toString()).toList();
-                } else if (route.schedule is String && (route.schedule as String).isNotEmpty) {
+                  scheduleList = (route.schedule as List)
+                      .map((e) => e.toString())
+                      .toList();
+                } else if (route.schedule is String &&
+                    (route.schedule as String).isNotEmpty) {
                   scheduleList = [route.schedule as String];
                 }
-                
+
                 if (scheduleList.isEmpty) {
                   return const SizedBox.shrink();
                 }
-                
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -943,7 +985,9 @@ class _DriverScreenState extends State<DriverScreen> {
                       ),
                     ),
                   ),
-                  title: Text(stop.name.isNotEmpty ? stop.name : 'Parada ${entry.key + 1}'),
+                  title: Text(stop.name.isNotEmpty
+                      ? stop.name
+                      : 'Parada ${entry.key + 1}'),
                   subtitle: Text(
                     '${stop.latitude.toStringAsFixed(4)}, ${stop.longitude.toStringAsFixed(4)}',
                   ),
@@ -970,15 +1014,16 @@ class _DriverScreenState extends State<DriverScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              final appProvider = Provider.of<AppProvider>(context, listen: false);
+              final appProvider =
+                  Provider.of<AppProvider>(context, listen: false);
               appProvider.logout();
               Navigator.of(context).pushReplacementNamed('/login');
             },
-            child: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
+            child: const Text('Cerrar Sesión',
+                style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 }
-

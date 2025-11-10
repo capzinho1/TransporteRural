@@ -100,7 +100,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/routes - Crear nueva ruta
 router.post('/', async (req, res) => {
   try {
-    const { route_id, name, schedule, stops, polyline, company_id } = req.body;
+    const { route_id, name, schedule, stops, polyline, company_id, estimated_duration, frequency } = req.body;
     
     console.log('📝 Creando ruta:', { route_id, name, company_id });
     console.log('🔑 Header x-user-id:', req.headers['x-user-id']);
@@ -125,7 +125,9 @@ router.post('/', async (req, res) => {
           stops: stops || null,
           polyline: polyline || null,
           company_id: finalCompanyId || null,
-          active: true
+          active: true,
+          estimated_duration: estimated_duration || null,
+          frequency: frequency || 30
         }
       ])
       .select()
@@ -157,7 +159,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, schedule, stops, polyline, active } = req.body;
+    const { name, schedule, stops, polyline, active, estimated_duration, frequency } = req.body;
     
     // Verificar permisos: company_admin solo puede modificar rutas de su empresa
     const user = await getUserFromRequest(req);
@@ -182,6 +184,8 @@ router.put('/:id', async (req, res) => {
     if (stops !== undefined) updateData.stops = stops;
     if (polyline !== undefined) updateData.polyline = polyline;
     if (active !== undefined) updateData.active = active;
+    if (estimated_duration !== undefined) updateData.estimated_duration = estimated_duration;
+    if (frequency !== undefined) updateData.frequency = frequency;
     
     const { data: rutaActualizada, error } = await supabase
       .from('routes')

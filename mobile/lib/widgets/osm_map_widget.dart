@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/bus.dart';
+import '../utils/app_colors.dart';
 import '../config/openstreetmap_config.dart';
 
 /// Widget de mapa usando OpenStreetMap con flutter_map
@@ -57,7 +58,7 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
           mapController: _mapController,
           options: MapOptions(
             initialCenter: _currentLocation ??
-                LatLng(
+                const LatLng(
                   OpenStreetMapConfig.defaultLatitude,
                   OpenStreetMapConfig.defaultLongitude,
                 ),
@@ -100,12 +101,12 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
               ),
 
             // Atribución requerida por OpenStreetMap
-            RichAttributionWidget(
+            const RichAttributionWidget(
               alignment: AttributionAlignment.bottomRight,
               attributions: [
                 TextSourceAttribution(
                   OpenStreetMapConfig.attribution,
-                  textStyle: const TextStyle(fontSize: 10),
+                  textStyle: TextStyle(fontSize: 10),
                 ),
               ],
             ),
@@ -131,14 +132,16 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: _getStatusColor(busLocation.status),
+              color: AppColors.getBusStatusColor(busLocation.status),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
+                  color: AppColors.getBusStatusColor(busLocation.status)
+                      .withValues(alpha: 0.5),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 1,
                 ),
               ],
             ),
@@ -183,8 +186,16 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(busLocation.status),
+                    gradient: AppColors.getStatusGradient(busLocation.status),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.getBusStatusColor(busLocation.status)
+                            .withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: const Icon(Icons.directions_bus, color: Colors.white),
                 ),
@@ -198,13 +209,57 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      Text(
-                        'Estado: ${busLocation.status}',
-                        style: TextStyle(
-                          color: _getStatusColor(busLocation.status),
-                          fontWeight: FontWeight.w500,
+                      if (busLocation.companyName != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.business,
+                              size: 14,
+                              color: AppColors.getCompanyColor(
+                                  busLocation.companyId),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                busLocation.companyName!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.getCompanyColor(
+                                      busLocation.companyId),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.getBusStatusColor(busLocation.status)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color:
+                                AppColors.getBusStatusColor(busLocation.status),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          busLocation.status,
+                          style: TextStyle(
+                            color:
+                                AppColors.getBusStatusColor(busLocation.status),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
@@ -214,14 +269,25 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
             ),
             const SizedBox(height: 16),
             _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A'),
-            _buildDetailRow('Conductor', busLocation.driverId?.toString() ?? 'N/A'),
             _buildDetailRow(
-              'Latitud',
-              busLocation.latitude.toStringAsFixed(6),
+              'Conductor',
+              busLocation.driverName ??
+                  (busLocation.driverId?.toString() ?? 'N/A'),
+              icon: Icons.person,
+              iconColor: AppColors.accentBlue,
             ),
+            if (busLocation.companyName != null)
+              _buildDetailRow(
+                'Empresa',
+                busLocation.companyName!,
+                icon: Icons.business,
+                iconColor: AppColors.getCompanyColor(busLocation.companyId),
+              ),
             _buildDetailRow(
-              'Longitud',
-              busLocation.longitude.toStringAsFixed(6),
+              'Ubicación',
+              'Lat: ${busLocation.latitude.toStringAsFixed(6)}\nLng: ${busLocation.longitude.toStringAsFixed(6)}',
+              icon: Icons.location_on,
+              iconColor: AppColors.accentIndigo,
             ),
             _buildDetailRow(
               'Última actualización',
@@ -245,20 +311,42 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value,
+      {IconData? icon, Color? iconColor}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 16,
+              color: iconColor ?? AppColors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+          ],
           SizedBox(
-            width: 120,
+            width: icon != null ? 80 : 120,
             child: Text(
               '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+                fontSize: 13,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -271,29 +359,13 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-      case 'en_ruta':
-        return Colors.green;
-      case 'inactive':
-        return Colors.grey;
-      case 'finalizado':
-        return Colors.blue;
-      case 'maintenance':
-        return Colors.orange;
-      default:
-        return Colors.blue;
-    }
-  }
-
   double _calculateDistance(
     double lat1,
     double lon1,
     double lat2,
     double lon2,
   ) {
-    final distance = Distance();
+    const distance = Distance();
     return distance.as(
       LengthUnit.Meter,
       LatLng(lat1, lon1),
@@ -301,4 +373,3 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
     );
   }
 }
-

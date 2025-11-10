@@ -104,29 +104,14 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                         ),
                       ],
                     ),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              _showCreateRouteDialog(context, null, true),
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('Desde Plantilla'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.purple,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: () =>
-                              _showCreateRouteDialog(context, null, false),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Nueva Ruta'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
+                    ElevatedButton.icon(
+                      onPressed: () => _showManualRouteDialog(context, null),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Nueva Ruta'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -162,21 +147,14 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
             style: TextStyle(fontSize: 18, color: Colors.grey),
           ),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => _showCreateRouteDialog(context, null, true),
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('Crear desde Plantilla'),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => _showCreateRouteDialog(context, null, false),
-                icon: const Icon(Icons.add),
-                label: const Text('Crear Ruta Manual'),
-              ),
-            ],
+          ElevatedButton.icon(
+            onPressed: () => _showManualRouteDialog(context, null),
+            icon: const Icon(Icons.add),
+            label: const Text('Crear Nueva Ruta'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -242,6 +220,26 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                                 '${ruta.stops.length} paradas',
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
+                              if (ruta.estimatedDuration != null) ...[
+                                const SizedBox(width: 16),
+                                const Icon(Icons.timer,
+                                    size: 16, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${ruta.estimatedDuration} min',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                              if (ruta.frequency != null) ...[
+                                const SizedBox(width: 16),
+                                const Icon(Icons.repeat,
+                                    size: 16, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Cada ${ruta.frequency} min',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -310,8 +308,7 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () =>
-                          _showCreateRouteDialog(context, ruta, false),
+                      onPressed: () => _showManualRouteDialog(context, ruta),
                       icon: const Icon(Icons.edit, size: 18),
                       label: const Text('Editar'),
                     ),
@@ -338,9 +335,9 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -453,332 +450,430 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     );
   }
 
-  void _showCreateRouteDialog(
-      BuildContext context, Ruta? ruta, bool fromTemplate) {
-    if (fromTemplate) {
-      _showTemplateSelectionDialog(context);
-    } else {
-      _showManualRouteDialog(context, ruta);
-    }
-  }
-
-  void _showTemplateSelectionDialog(BuildContext context) {
-    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-    final existingRoutes = adminProvider.rutas;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Crear Ruta desde Plantilla'),
-        content: SizedBox(
-          width: 600,
-          height: 500,
-          child: existingRoutes.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.route_outlined,
-                          size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No hay rutas disponibles',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Crea una ruta primero para usarla como plantilla',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: existingRoutes.length,
-                  itemBuilder: (context, index) {
-                    final ruta = existingRoutes[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: const Icon(Icons.route, color: Colors.purple),
-                        title: Text(ruta.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('ID: ${ruta.routeId}'),
-                            Text('Horario: ${ruta.schedule}'),
-                            Text('${ruta.stops.length} paradas'),
-                          ],
-                        ),
-                        trailing: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _createRouteFromExistingRoute(ruta);
-                          },
-                          child: const Text('Usar como Plantilla'),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _createRouteFromExistingRoute(Ruta existingRoute) {
-    // Mostrar diálogo para configurar la nueva ruta basada en la existente
-    final routeIdController = TextEditingController();
-    final nameController =
-        TextEditingController(text: '${existingRoute.name} (Copia)');
-    final scheduleController =
-        TextEditingController(text: existingRoute.schedule);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Crear Ruta desde Plantilla'),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Basada en: ${existingRoute.name}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: routeIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'ID de Ruta *',
-                    hintText: 'R001',
-                    prefixIcon: Icon(Icons.tag),
-                    helperText: 'Ingresa un ID único para la nueva ruta',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre de Ruta *',
-                    hintText: 'Ruta Centro - Norte',
-                    prefixIcon: Icon(Icons.route),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: scheduleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Horario *',
-                    hintText: '06:00 - 22:00',
-                    prefixIcon: Icon(Icons.schedule),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline,
-                          color: Colors.blue, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Se copiarán ${existingRoute.stops.length} paradas de la ruta original',
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.blue),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (routeIdController.text.isEmpty ||
-                  nameController.text.isEmpty ||
-                  scheduleController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Por favor completa todos los campos'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              // Crear nueva ruta basada en la existente
-              final newRuta = Ruta(
-                routeId: routeIdController.text.trim(),
-                name: nameController.text.trim(),
-                schedule: scheduleController.text.trim(),
-                stops: existingRoute.stops.map((stop) {
-                  return Parada(
-                    name: stop.name,
-                    latitude: stop.latitude,
-                    longitude: stop.longitude,
-                    order: stop.order,
-                  );
-                }).toList(),
-                polyline: existingRoute.polyline,
-                active: true,
-              );
-
-              Navigator.pop(context);
-              _showRouteCreationDialog(newRuta, false);
-            },
-            child: const Text('Crear Ruta'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showManualRouteDialog(BuildContext context, Ruta? ruta) {
-    final routeIdController = TextEditingController(text: ruta?.routeId ?? '');
+    // Si es edición, cargar datos existentes
     final nameController = TextEditingController(text: ruta?.name ?? '');
     final scheduleController =
         TextEditingController(text: ruta?.schedule ?? '06:00 - 22:00');
+    final inicioController = TextEditingController();
+    final finalController = TextEditingController();
+
+    // Si es edición y hay paradas, el inicio y final son la primera y última parada
+    if (ruta != null && ruta.stops.isNotEmpty) {
+      inicioController.text = ruta.stops.first.name;
+      if (ruta.stops.length > 1) {
+        finalController.text = ruta.stops.last.name;
+      }
+    }
+
+    // Lista de paradas intermedias (sin inicio y final)
+    List<String> paradasNombres = [];
+    if (ruta != null && ruta.stops.length > 2) {
+      // Excluir primera y última parada
+      paradasNombres = ruta.stops
+          .sublist(1, ruta.stops.length - 1)
+          .map((p) => p.name)
+          .toList();
+    }
+
+    // Variable para controlar si se crea la ruta inversa (solo para nuevas rutas)
+    bool createReverseRoute = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(ruta == null ? 'Crear Ruta' : 'Editar Ruta'),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: routeIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'ID de Ruta *',
-                    hintText: 'R001',
-                    prefixIcon: Icon(Icons.tag),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(ruta == null ? 'Crear Nueva Ruta' : 'Editar Ruta'),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 600,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre de Ruta *',
+                      hintText: 'Ruta Centro - Norte',
+                      prefixIcon: Icon(Icons.route),
+                      helperText: 'Nombre descriptivo de la ruta',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre de Ruta *',
-                    hintText: 'Ruta Centro - Norte',
-                    prefixIcon: Icon(Icons.route),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: scheduleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Horario *',
+                      hintText: '06:00 - 22:00',
+                      prefixIcon: Icon(Icons.schedule),
+                      helperText: 'Horario de operación de la ruta',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: scheduleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Horario *',
-                    hintText: '06:00 - 22:00',
-                    prefixIcon: Icon(Icons.schedule),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Puntos de la Ruta',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Nota: Las paradas se pueden agregar después de crear la ruta',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: inicioController,
+                    decoration: const InputDecoration(
+                      labelText: 'Punto de Inicio *',
+                      hintText: 'Ej: Terminal Central',
+                      prefixIcon:
+                          Icon(Icons.play_circle_outline, color: Colors.green),
+                      helperText: 'Punto de partida de la ruta',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: finalController,
+                    decoration: const InputDecoration(
+                      labelText: 'Punto Final *',
+                      hintText: 'Ej: Terminal Norte',
+                      prefixIcon:
+                          Icon(Icons.stop_circle_outlined, color: Colors.red),
+                      helperText: 'Destino final de la ruta',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Paradas Intermedias',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            paradasNombres.add('');
+                          });
+                        },
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Agregar Parada'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (paradasNombres.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: Colors.grey[600], size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No hay paradas intermedias. Haz clic en "Agregar Parada" para añadir paradas entre el inicio y el final.',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[700]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...List.generate(paradasNombres.length, (index) {
+                      return Padding(
+                        key: ValueKey('parada_$index'),
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: ValueKey('textfield_parada_$index'),
+                                controller: TextEditingController(
+                                    text: paradasNombres[index])
+                                  ..selection = TextSelection.fromPosition(
+                                    TextPosition(
+                                        offset: paradasNombres[index].length),
+                                  ),
+                                decoration: InputDecoration(
+                                  labelText: 'Parada ${index + 1}',
+                                  hintText: 'Ej: Plaza de Armas',
+                                  prefixIcon: const Icon(Icons.location_on),
+                                  border: const OutlineInputBorder(),
+                                ),
+                                onChanged: (value) {
+                                  paradasNombres[index] = value;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                setDialogState(() {
+                                  paradasNombres.removeAt(index);
+                                });
+                              },
+                              tooltip: 'Eliminar parada',
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  const SizedBox(height: 24),
+
+                  // Opción para crear ruta inversa (solo para nuevas rutas)
+                  if (ruta == null) ...[
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: createReverseRoute,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                createReverseRoute = value ?? false;
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.swap_horiz,
+                                        color: Colors.blue[700], size: 20),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Crear ruta inversa automáticamente',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Se creará una ruta de vuelta con las paradas en orden inverso.\n'
+                                  'Ej: Si creas "Linares-Talca-Rancagua", también se creará "Rancagua-Talca-Linares"',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (routeIdController.text.isEmpty ||
-                  nameController.text.isEmpty ||
-                  scheduleController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Por favor completa todos los campos'),
-                    backgroundColor: Colors.red,
-                  ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isEmpty ||
+                    scheduleController.text.isEmpty ||
+                    inicioController.text.isEmpty ||
+                    finalController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Por favor completa todos los campos obligatorios'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                // Construir lista completa de paradas: inicio + paradas intermedias + final
+                List<Parada> allStops = [];
+
+                // Agregar inicio
+                allStops.add(Parada(
+                  name: inicioController.text.trim(),
+                  latitude:
+                      0.0, // Se puede actualizar después con coordenadas reales
+                  longitude: 0.0,
+                  order: 0,
+                ));
+
+                // Agregar paradas intermedias (solo las que tienen nombre)
+                int orderIndex = 1;
+                for (var nombre in paradasNombres) {
+                  if (nombre.trim().isNotEmpty) {
+                    allStops.add(Parada(
+                      name: nombre.trim(),
+                      latitude:
+                          0.0, // Se puede actualizar después con coordenadas reales
+                      longitude: 0.0,
+                      order: orderIndex++,
+                    ));
+                  }
+                }
+
+                // Agregar final
+                allStops.add(Parada(
+                  name: finalController.text.trim(),
+                  latitude:
+                      0.0, // Se puede actualizar después con coordenadas reales
+                  longitude: 0.0,
+                  order: allStops.length,
+                ));
+
+                // Generar routeId si no existe (para nuevas rutas)
+                String routeId;
+                if (ruta != null) {
+                  routeId = ruta.routeId;
+                } else {
+                  // Generar ID único basado en el nombre
+                  final timestamp = DateTime.now().millisecondsSinceEpoch;
+                  final namePart = nameController.text
+                      .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+                      .substring(
+                          0,
+                          nameController.text.length > 5
+                              ? 5
+                              : nameController.text.length)
+                      .toUpperCase();
+                  routeId = 'R${namePart}_$timestamp';
+                }
+
+                final newRuta = Ruta(
+                  routeId: routeId,
+                  name: nameController.text.trim(),
+                  schedule: scheduleController.text.trim(),
+                  stops: allStops,
+                  polyline: ruta?.polyline ?? '',
+                  active: ruta?.active ?? true,
                 );
-                return;
-              }
 
-              final newRuta = Ruta(
-                routeId: routeIdController.text.trim(),
-                name: nameController.text.trim(),
-                schedule: scheduleController.text.trim(),
-                stops: ruta?.stops ?? [],
-                polyline: ruta?.polyline ?? '',
-                active: ruta?.active ?? true,
-              );
-
-              Navigator.pop(context);
-              _showRouteCreationDialog(newRuta, ruta != null);
-            },
-            child: Text(ruta == null ? 'Crear' : 'Actualizar'),
-          ),
-        ],
+                Navigator.pop(context);
+                _createRouteWithReverse(
+                    newRuta, ruta != null, createReverseRoute);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(ruta == null ? 'Crear Ruta' : 'Actualizar Ruta'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _showRouteCreationDialog(Ruta ruta, bool isUpdate) async {
+  Future<void> _createRouteWithReverse(
+      Ruta ruta, bool isUpdate, bool createReverse) async {
     final adminProvider = Provider.of<AdminProvider>(context, listen: false);
     bool success;
 
     if (isUpdate) {
+      // Si es actualización, no crear ruta inversa
       success = await adminProvider.updateRuta(ruta.routeId, ruta);
-    } else {
-      print('🔄 Creando ruta: ${ruta.routeId} - ${ruta.name}');
-      success = await adminProvider.createRuta(ruta);
-      print('✅ Resultado creación: $success');
-      if (success) {
-        print('📊 Rutas después de crear: ${adminProvider.rutas.length}');
+
+      if (success && mounted) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ruta actualizada exitosamente'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              adminProvider.error ?? 'Error al actualizar la ruta',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
+      return;
+    }
+
+    // Crear la ruta principal
+    print('🔄 Creando ruta: ${ruta.routeId} - ${ruta.name}');
+    success = await adminProvider.createRuta(ruta);
+    print('✅ Resultado creación: $success');
+
+    bool reverseSuccess = false;
+    Ruta? reverseRuta;
+
+    // Si se solicitó crear la ruta inversa y la ruta principal se creó exitosamente
+    if (createReverse && success && ruta.stops.length >= 2) {
+      // Crear ruta inversa
+      reverseRuta = _createReverseRoute(ruta);
+      print(
+          '🔄 Creando ruta inversa: ${reverseRuta.routeId} - ${reverseRuta.name}');
+      reverseSuccess = await adminProvider.createRuta(reverseRuta);
+      print('✅ Resultado creación ruta inversa: $reverseSuccess');
     }
 
     if (success && mounted) {
+      // Recargar rutas para asegurar que se muestren ambas (principal e inversa)
+      await adminProvider.loadRutas();
+
       // Esperar un momento para que el provider se actualice
       await Future.delayed(const Duration(milliseconds: 100));
 
       // Forzar actualización del estado
       if (mounted) {
         setState(() {});
+        String message;
+        if (createReverse && reverseSuccess) {
+          message =
+              'Ruta "${ruta.name}" y ruta inversa "${reverseRuta!.name}" creadas exitosamente. Total: ${adminProvider.rutas.length}';
+        } else if (createReverse && !reverseSuccess) {
+          message =
+              'Ruta "${ruta.name}" creada, pero hubo un error al crear la ruta inversa. Total: ${adminProvider.rutas.length}';
+        } else {
+          message =
+              'Ruta creada exitosamente. Total: ${adminProvider.rutas.length}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              isUpdate
-                  ? 'Ruta actualizada exitosamente'
-                  : 'Ruta creada exitosamente. Total: ${adminProvider.rutas.length}',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
+            content: Text(message),
+            backgroundColor: (createReverse && !reverseSuccess)
+                ? Colors.orange
+                : Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -786,14 +881,86 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            adminProvider.error ??
-                'Error al ${isUpdate ? 'actualizar' : 'crear'} la ruta',
+            adminProvider.error ?? 'Error al crear la ruta',
           ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
       );
     }
+  }
+
+  /// Crea una ruta inversa basada en la ruta original
+  Ruta _createReverseRoute(Ruta originalRoute) {
+    // Invertir el orden de las paradas
+    List<Parada> reversedStops = [];
+    for (int i = originalRoute.stops.length - 1; i >= 0; i--) {
+      final originalStop = originalRoute.stops[i];
+      reversedStops.add(Parada(
+        name: originalStop.name,
+        latitude: originalStop.latitude,
+        longitude: originalStop.longitude,
+        order: originalRoute.stops.length - 1 - i,
+      ));
+    }
+
+    // Crear nombre para la ruta inversa
+    String reverseName;
+    final routeName = originalRoute.name.trim();
+
+    // Intentar detectar formato "A - B - C" o "A-B-C" o "A -> B -> C"
+    // Buscar el separador principal (el más común)
+    String? separator;
+    if (routeName.contains(' - ')) {
+      separator = ' - ';
+    } else if (routeName.contains(' -> ')) {
+      separator = ' -> ';
+    } else if (routeName.contains('-')) {
+      separator = '-';
+    } else if (routeName.contains('->')) {
+      separator = '->';
+    }
+
+    if (separator != null) {
+      // Dividir por el separador encontrado
+      List<String> parts = routeName.split(RegExp(separator == ' - '
+          ? r'\s*-\s*'
+          : (separator == ' -> ' ? r'\s*->\s*' : separator)));
+
+      // Limpiar partes y filtrar vacías
+      parts = parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+
+      if (parts.length >= 2) {
+        // Invertir el orden y unir con el mismo separador
+        reverseName = parts.reversed.join(separator);
+      } else {
+        // Si no se puede invertir automáticamente, agregar "(Vuelta)"
+        reverseName = '$routeName (Vuelta)';
+      }
+    } else {
+      // Si no tiene formato reconocible, agregar "(Vuelta)"
+      reverseName = '$routeName (Vuelta)';
+    }
+
+    // Generar routeId único para la ruta inversa
+    // Usar un timestamp ligeramente mayor para asegurar unicidad
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final namePart = reverseName
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .substring(0, reverseName.length > 5 ? 5 : reverseName.length)
+        .toUpperCase();
+    // Usar timestamp + 10 para asegurar que sea diferente del routeId original
+    final reverseRouteId = 'R${namePart}_${timestamp + 10}';
+
+    return Ruta(
+      routeId: reverseRouteId,
+      name: reverseName,
+      schedule: originalRoute.schedule,
+      stops: reversedStops,
+      polyline: '', // La polyline se puede generar después
+      active: originalRoute.active ?? true,
+      companyId: originalRoute.companyId,
+    );
   }
 
   void _showAssignmentDialog(
@@ -973,15 +1140,14 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                 .updateBusLocation(availableBus.id!, updatedBus);
           } else {
             // No hay buses disponibles - informar al usuario
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'No hay buses disponibles. Por favor crea un bus primero.'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            }
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'No hay buses disponibles. Por favor crea un bus primero.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
             return;
           }
         }
@@ -997,55 +1163,57 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
       // Recargar datos
       await _loadData();
 
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Asignación guardada exitosamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Asignación guardada exitosamente'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al guardar asignación: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar asignación: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   void _confirmDelete(BuildContext context, Ruta ruta) {
+    final scaffoldContext = context;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Confirmar Eliminación'),
         content: Text('¿Estás seguro de eliminar la ruta "${ruta.name}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () async {
               final adminProvider =
-                  Provider.of<AdminProvider>(context, listen: false);
+                  Provider.of<AdminProvider>(dialogContext, listen: false);
               final success = await adminProvider.deleteRuta(ruta.routeId);
 
-              if (success && mounted) {
-                Navigator.pop(context);
-                await _loadData();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ruta eliminada exitosamente'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
+              if (!success) return;
+              if (!dialogContext.mounted) return;
+
+              Navigator.pop(dialogContext);
+              await _loadData();
+
+              if (!scaffoldContext.mounted) return;
+              ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                const SnackBar(
+                  content: Text('Ruta eliminada exitosamente'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Widget reutilizable para mostrar el logo GeoRu
-/// 
+///
 /// El logo consiste en:
 /// - Un ícono de pin de mapa con colores verde y azul
 /// - El texto "GeoRu" con "Geo" en gris y "Ru" en verde
@@ -41,7 +41,7 @@ class GeoRuLogo extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -65,10 +65,11 @@ class GeoRuLogo extends StatelessWidget {
   Widget _buildLogoIcon(double size) {
     // Intentar cargar la imagen del logo desde assets
     // Primero intenta WebP, luego PNG, y finalmente usa el CustomPainter como fallback
-    return _buildLogoImage(size) ?? CustomPaint(
-      size: Size(size, size),
-      painter: GeoRuLogoPainter(),
-    );
+    return _buildLogoImage(size) ??
+        CustomPaint(
+          size: Size(size, size),
+          painter: GeoRuLogoPainter(),
+        );
   }
 
   Widget? _buildLogoImage(double size) {
@@ -79,7 +80,7 @@ class GeoRuLogo extends StatelessWidget {
       // Esto evita los errores 404 en consola
       return null; // Retornar null para usar el fallback directamente
     }
-    
+
     // Lista de posibles rutas de la imagen del logo (en orden de prioridad)
     final possiblePaths = [
       'assets/images/georu_logo.webp',
@@ -173,14 +174,14 @@ class _LogoImageLoader extends StatelessWidget {
         },
       );
     }
-    
+
     // Si no hay rutas, mostrar el fallback
     return fallback;
   }
 }
 
 /// CustomPainter para dibujar el logo GeoRu
-/// 
+///
 /// Dibuja un pin de mapa con:
 /// - Parte superior izquierda: verde oscuro
 /// - Parte superior derecha: azul claro
@@ -197,7 +198,7 @@ class GeoRuLogoPainter extends CustomPainter {
 
     // Dibujar el pin de mapa
     final pinPath = Path();
-    
+
     // Parte superior redondeada del pin
     pinPath.moveTo(centerX, centerY - pinHeight / 2);
     pinPath.quadraticBezierTo(
@@ -206,17 +207,17 @@ class GeoRuLogoPainter extends CustomPainter {
       centerX - pinWidth / 2,
       centerY - pinHeight / 3,
     );
-    
+
     // Lado izquierdo
     pinPath.lineTo(centerX - pinWidth / 2, centerY + pinHeight / 3);
-    
+
     // Punta inferior
     pinPath.lineTo(centerX, centerY + pinHeight / 2);
     pinPath.lineTo(centerX + pinWidth / 2, centerY + pinHeight / 3);
-    
+
     // Lado derecho
     pinPath.lineTo(centerX + pinWidth / 2, centerY - pinHeight / 3);
-    
+
     // Cerrar el pin
     pinPath.quadraticBezierTo(
       centerX + pinWidth / 2,
@@ -259,7 +260,7 @@ class GeoRuLogoPainter extends CustomPainter {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.white.withOpacity(0.3);
+      ..color = Colors.white.withValues(alpha: 0.3);
     canvas.drawPath(pinPath, borderPaint);
 
     // Dibujar el camino sinuoso dentro del pin
@@ -285,12 +286,12 @@ class GeoRuLogoPainter extends CustomPainter {
 
     // Gradiente del camino (verde claro a marrón tierra)
     final roadGradient = Paint()
-      ..shader = LinearGradient(
+      ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          const Color(0xFFA5D6A7), // Verde claro
-          const Color(0xFF8D6E63), // Marrón tierra
+          Color(0xFFA5D6A7), // Verde claro
+          Color(0xFF8D6E63), // Marrón tierra
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.stroke
@@ -303,4 +304,3 @@ class GeoRuLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

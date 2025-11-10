@@ -122,7 +122,15 @@ class AdminProvider extends ChangeNotifier {
 
   // Alias para compatibilidad con mapa en tiempo real
   Future<void> loadBusLocations() async {
-    await loadBuses();
+    try {
+      // Actualizar sin activar loading para no interrumpir la UI
+      final buses = await _apiService.getBusLocations();
+      _buses = buses;
+      notifyListeners(); // Notificar a los listeners para actualizar la UI
+    } catch (e) {
+      print('⚠️ Error al cargar ubicaciones de buses: $e');
+      // No establecer error para no interrumpir la UI en actualizaciones automáticas
+    }
   }
 
   Future<bool> createBus(BusLocation bus) async {

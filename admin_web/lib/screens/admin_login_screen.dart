@@ -112,19 +112,19 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Logo GeoRu y título
-                      Center(
+                      const Center(
                         child: Column(
                           children: [
                             // Logo completo con ícono y texto
-                            const GeoRuLogo(
+                            GeoRuLogo(
                               size: 100,
                               showText: true,
                               showSlogan: false,
                               showBackground: true,
                               backgroundColor: Colors.white,
                             ),
-                            const SizedBox(height: 16),
-                            const Text(
+                            SizedBox(height: 16),
+                            Text(
                               'Panel Administrativo',
                               style: TextStyle(
                                 fontSize: 18,
@@ -147,9 +147,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             return _userEmails.take(10);
                           }
                           return _userEmails
-                              .where((email) => email
-                                  .toLowerCase()
-                                  .contains(textEditingValue.text.toLowerCase()))
+                              .where((email) => email.toLowerCase().contains(
+                                  textEditingValue.text.toLowerCase()))
                               .take(10);
                         },
                         onSelected: (String email) {
@@ -160,11 +159,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             FocusNode focusNode,
                             VoidCallback onFieldSubmitted) {
                           // Inicializar con el valor del controlador si existe
-                          if (_emailController.text.isNotEmpty && 
+                          if (_emailController.text.isNotEmpty &&
                               textEditingController.text.isEmpty) {
                             textEditingController.text = _emailController.text;
                           }
-                          
+
                           return TextFormField(
                             controller: textEditingController,
                             focusNode: focusNode,
@@ -174,8 +173,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             },
                             decoration: InputDecoration(
                               labelText: 'Email',
-                              hintText: _isLoadingUsers 
-                                  ? 'Cargando usuarios...' 
+                              hintText: _isLoadingUsers
+                                  ? 'Cargando usuarios...'
                                   : 'Ingresa tu email',
                               prefixIcon: const Icon(Icons.email_outlined),
                               border: OutlineInputBorder(
@@ -293,4 +292,3 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     );
   }
 }
-

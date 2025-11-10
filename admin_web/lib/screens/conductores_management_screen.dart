@@ -199,8 +199,15 @@ class _ConductoresManagementScreenState
             _buildInfoRow(
               Icons.circle,
               'Estado',
-              'Activo',
-              color: Colors.green,
+              conductor.statusLabel,
+              color: _getStatusColor(conductor.driverStatus ?? 'disponible'),
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.check_circle,
+              'Cuenta',
+              conductor.isActive ? 'Activa' : 'Inactiva',
+              color: conductor.isActive ? Colors.green : Colors.red,
             ),
 
             const SizedBox(height: 16),
@@ -212,13 +219,27 @@ class _ConductoresManagementScreenState
                   child: OutlinedButton.icon(
                     onPressed: () => _showConductorDetails(context, conductor),
                     icon: const Icon(Icons.info_outline, size: 16),
-                    label: const Text('Ver Detalles'),
+                    label: const Text('Detalles'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.blue,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _toggleConductorStatus(context, conductor),
+                    icon: Icon(
+                      conductor.isActive ? Icons.block : Icons.check_circle,
+                      size: 16,
+                    ),
+                    label: Text(conductor.isActive ? 'Desactivar' : 'Activar'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: conductor.isActive ? Colors.orange : Colors.green,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _showConductorDialog(context, conductor),
@@ -284,16 +305,37 @@ class _ConductoresManagementScreenState
               _buildDetailRow('Nombre', conductor.name),
               _buildDetailRow('Email', conductor.email),
               _buildDetailRow('Rol', 'Conductor'),
-              _buildDetailRow('Estado', 'Activo'),
+              _buildDetailRow('Estado', conductor.statusLabel),
+              _buildDetailRow('Cuenta', conductor.isActive ? 'Activa' : 'Inactiva'),
               const SizedBox(height: 16),
               const Text(
                 'Estadísticas:',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
-              _buildDetailRow('Recorridos completados', '0'),
-              _buildDetailRow('Buses asignados', '0'),
-              _buildDetailRow('Calificación promedio', 'N/A'),
+              FutureBuilder(
+                future: _getConductorStats(conductor.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const CircularProgressIndicator();
+                  }
+                  
+                  final stats = snapshot.data ?? {};
+                  final tripsCount = stats['tripsCount'] ?? 0;
+                  final avgRating = stats['avgRating'] ?? 0.0;
+                  final punctuality = stats['punctuality'] ?? 0.0;
+                  
+                  return Column(
+                    children: [
+                      _buildDetailRow('Viajes completados', tripsCount.toString()),
+                      _buildDetailRow('Calificación promedio', 
+                        avgRating > 0 ? '${avgRating.toStringAsFixed(1)}/5' : 'N/A'),
+                      if (punctuality > 0)
+                        _buildDetailRow('Puntualidad', '${punctuality.toStringAsFixed(1)}%'),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -346,10 +388,15 @@ class _ConductoresManagementScreenState
     final nameController = TextEditingController(text: conductor?.name ?? '');
     final emailController = TextEditingController(text: conductor?.email ?? '');
     final passwordController = TextEditingController();
+    
+    // Variables de estado para el diálogo
+    String selectedStatus = conductor?.driverStatus ?? 'disponible';
+    bool isActive = conductor?.isActive ?? true;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
         title: Text(
           conductor == null ? 'Nuevo Conductor' : 'Editar Conductor',
         ),
@@ -388,6 +435,63 @@ class _ConductoresManagementScreenState
                       prefixIcon: Icon(Icons.lock),
                     ),
                   ),
+                if (conductor == null) const SizedBox(height: 16),
+                // Estado del conductor (solo para conductores)
+                if (conductor != null) ...[
+                  const Text(
+                    'Estado del Conductor',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'Estado',
+                      prefixIcon: Icon(Icons.drive_eta),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'disponible',
+                        child: Text('Disponible'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'en_ruta',
+                        child: Text('En Ruta'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'fuera_de_servicio',
+                        child: Text('Fuera de Servicio'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'en_descanso',
+                        child: Text('En Descanso'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          selectedStatus = value;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // Activar/Desactivar cuenta
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isActive,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          isActive = value ?? true;
+                        });
+                      },
+                    ),
+                    const Text('Cuenta activa'),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -462,6 +566,12 @@ class _ConductoresManagementScreenState
               if (conductor == null && passwordController.text.isNotEmpty) {
                 conductorData['password'] = passwordController.text;
               }
+              
+              // Agregar campos adicionales
+              conductorData['active'] = isActive;
+              if (conductor != null) {
+                conductorData['driver_status'] = selectedStatus;
+              }
 
               bool success;
 
@@ -469,8 +579,13 @@ class _ConductoresManagementScreenState
                 // Usar el método del servicio directamente para enviar el password
                 success = await adminProvider.createUsuarioWithData(conductorData);
               } else {
+                // Actualizar con los nuevos campos
+                final usuarioActualizado = newConductor.copyWith(
+                  active: isActive,
+                  driverStatus: selectedStatus,
+                );
                 success = await adminProvider.updateUsuario(
-                    conductor.id, newConductor);
+                    conductor.id, usuarioActualizado);
               }
 
               if (success && context.mounted) {
@@ -490,8 +605,75 @@ class _ConductoresManagementScreenState
             child: Text(conductor == null ? 'Registrar' : 'Actualizar'),
           ),
         ],
+        ),
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> _getConductorStats(int driverId) async {
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      
+      // Obtener viajes del conductor
+      final trips = await adminProvider.apiService.getTripsByDriver(driverId);
+      final completedTrips = trips.where((t) => t.status == 'completed').length;
+      
+      // Obtener calificaciones
+      final ratingStats = await adminProvider.apiService.getDriverRatingStats(driverId);
+      
+      return {
+        'tripsCount': completedTrips,
+        'avgRating': ratingStats['average'] ?? 0.0,
+        'punctuality': ratingStats['punctualityRate'] ?? 0.0,
+      };
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'en_ruta':
+        return Colors.blue;
+      case 'disponible':
+        return Colors.green;
+      case 'fuera_de_servicio':
+        return Colors.red;
+      case 'en_descanso':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _toggleConductorStatus(BuildContext context, Usuario conductor) async {
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    
+    final nuevaEstado = !conductor.isActive;
+    final usuarioActualizado = conductor.copyWith(active: nuevaEstado);
+    
+    final success = await adminProvider.updateUsuario(conductor.id, usuarioActualizado);
+    
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            nuevaEstado 
+                ? 'Conductor ${conductor.name} activado exitosamente'
+                : 'Conductor ${conductor.name} desactivado exitosamente',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await adminProvider.loadUsuarios();
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al ${nuevaEstado ? 'activar' : 'desactivar'} conductor: ${adminProvider.error ?? "Error desconocido"}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _confirmDelete(BuildContext context, Usuario conductor) {

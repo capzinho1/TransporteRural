@@ -37,7 +37,7 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        initialCenter: LatLng(
+        initialCenter: const LatLng(
           OpenStreetMapConfig.defaultLatitude,
           OpenStreetMapConfig.defaultLongitude,
         ),
@@ -63,12 +63,12 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
         ),
 
         // Atribución requerida por OpenStreetMap
-        RichAttributionWidget(
+        const RichAttributionWidget(
           alignment: AttributionAlignment.bottomRight,
           attributions: [
             TextSourceAttribution(
               OpenStreetMapConfig.attribution,
-              textStyle: const TextStyle(fontSize: 10),
+              textStyle: TextStyle(fontSize: 10),
             ),
           ],
         ),
@@ -97,7 +97,7 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -154,7 +154,8 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A'),
-            _buildDetailRow('Conductor', busLocation.driverId?.toString() ?? 'N/A'),
+            _buildDetailRow(
+                'Conductor', busLocation.driverId?.toString() ?? 'N/A'),
             _buildDetailRow('Estado', busLocation.status),
             _buildDetailRow(
               'Latitud',
@@ -241,7 +242,7 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
     double lat2,
     double lon2,
   ) {
-    final distance = Distance();
+    const distance = Distance();
     return distance.as(
       LengthUnit.Meter,
       LatLng(lat1, lon1),
@@ -249,4 +250,3 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
     );
   }
 }
-
