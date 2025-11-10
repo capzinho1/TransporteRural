@@ -1,24 +1,56 @@
-# 🚌 TransporteRural
+# 🚌 GeoRu - Sistema de Transporte Rural
 
-Sistema completo de transporte rural con localización de buses en tiempo real, desarrollado con Node.js, Flutter y PostgreSQL usando Docker Compose.
+Sistema completo de gestión y seguimiento de transporte rural con localización de buses en tiempo real, desarrollado con Node.js, Flutter y Supabase (PostgreSQL).
 
 ## 📋 Descripción
 
-TransporteRural es una aplicación que permite:
-- **Localizar buses rurales en tiempo real** para pasajeros
-- **Gestionar recorridos** desde un panel administrativo
-- **Seguimiento de ubicación** con mapas interactivos
-- **API REST** para integración con aplicaciones móviles
+**GeoRu** es una aplicación integral que permite gestionar y monitorear el transporte rural, conectando pasajeros, conductores y administradores de empresas de transporte. El sistema ofrece seguimiento en tiempo real, gestión de rutas, reportes de usuarios y análisis de datos.
+
+### Características Principales
+
+- 🗺️ **Seguimiento en tiempo real** de buses con mapas interactivos
+- 📍 **Gestión de rutas** con paradas y polilíneas
+- 👥 **Multi-empresa** con administración independiente
+- ⭐ **Sistema de calificaciones** de conductores por pasajeros
+- 📊 **Reportes de usuarios** con alertas predefinidas
+- 📱 **Aplicaciones multiplataforma** (Web y Móvil)
+- 🔐 **Sistema de roles** con permisos diferenciados
+- 📈 **Dashboard administrativo** con estadísticas en tiempo real
 
 ## 🏗️ Arquitectura
 
 ```
 TransporteRural/
-├── backend/           # API REST con Node.js + Express
-├── mobile/           # App Flutter (Pasajeros - Web/Móvil)
-├── admin_web/        # Panel Administrativo Flutter (Web)
-├── database/         # Scripts de inicialización PostgreSQL
-├── nginx/           # Configuración de proxy reverso
+├── backend/              # API REST con Node.js + Express
+│   ├── src/
+│   │   ├── routes/      # Endpoints de la API
+│   │   ├── services/    # Servicios de Supabase
+│   │   ├── middleware/  # Autenticación y validación
+│   │   └── server.js    # Servidor principal
+│   └── package.json
+├── mobile/              # App Flutter para Pasajeros (Web/Móvil)
+│   ├── lib/
+│   │   ├── models/      # Modelos de datos
+│   │   ├── screens/     # Pantallas de la app
+│   │   ├── widgets/     # Componentes reutilizables
+│   │   ├── services/    # Servicios API
+│   │   ├── providers/   # Gestión de estado (Provider)
+│   │   └── utils/       # Utilidades (colores, alertas)
+│   └── pubspec.yaml
+├── admin_web/           # Panel Administrativo Flutter (Web)
+│   ├── lib/
+│   │   ├── models/      # Modelos de datos
+│   │   ├── screens/     # Pantallas administrativas
+│   │   ├── widgets/     # Componentes reutilizables
+│   │   ├── services/    # Servicios API
+│   │   └── providers/   # Gestión de estado
+│   └── pubspec.yaml
+├── database/            # Scripts de migración y esquema
+│   ├── supabase_schema.sql
+│   ├── migration_add_features.sql
+│   ├── migration_add_companies.sql
+│   └── migration_add_bus_alerts.sql
+├── nginx/              # Configuración de proxy reverso
 ├── docker-compose.yml
 └── README.md
 ```
@@ -27,25 +59,68 @@ TransporteRural/
 
 ### Backend
 - **Node.js 20** + Express
-- **PostgreSQL 15** con PostGIS
+- **Supabase** (PostgreSQL con PostGIS)
 - **JWT** para autenticación
 - **CORS** habilitado
+- **Middleware** de autenticación y autorización
 
 ### Frontend
 - **Flutter 3.x** con Dart
-- **Google Maps** para visualización
+- **OpenStreetMap** (flutter_map) para visualización de mapas
 - **Provider** para gestión de estado
 - **HTTP/Dio** para comunicación con API
+- **Geolocator** para ubicación GPS
+- **Material Design** para UI
+
+### Base de Datos
+- **Supabase** (PostgreSQL 15) con PostGIS
+- **Row Level Security (RLS)** para seguridad
+- **Índices GIN** para búsquedas eficientes
 
 ### Infraestructura
-- **Docker Compose** para orquestación
-- **Nginx** como proxy reverso
-- **PostgreSQL** con persistencia de datos
+- **Docker Compose** para orquestación (opcional)
+- **Nginx** como proxy reverso (producción)
+
+## 👥 Roles del Sistema
+
+### 🔴 Super Administrador (`super_admin`)
+- Gestión global del sistema
+- Crear, modificar y eliminar empresas
+- Gestionar todos los usuarios del sistema
+- Acceso a todas las funcionalidades
+- Estadísticas globales
+
+### 🟠 Administrador de Empresa (`company_admin`)
+- **Protegido**: No se puede editar ni eliminar
+- Gestionar conductores de su empresa
+- Gestionar buses de su empresa
+- Gestionar rutas de su empresa
+- Ver reportes y calificaciones
+- Estadísticas de su empresa
+- Asignar conductores a buses y rutas
+
+### 🟡 Conductor (`driver`)
+- Actualizar ubicación del bus en tiempo real
+- Iniciar y finalizar recorridos
+- Ver ruta asignada
+- Recibir notificaciones
+- Ver estado del bus
+
+### 🟢 Usuario Pasajero (`user`)
+- Ver buses en tiempo real en el mapa
+- Consultar rutas disponibles
+- Ver historial de viajes
+- Calificar conductores
+- Reportar problemas con buses
+- Ver alertas activas de buses
+- Filtrar buses por empresa, ruta o bus específico
 
 ## 🛠️ Instalación y Configuración
 
 ### Prerrequisitos
-- Docker y Docker Compose
+- Node.js 20+
+- Flutter 3.x
+- Cuenta de Supabase (gratuita)
 - Git
 
 ### 1. Clonar el repositorio
@@ -54,35 +129,71 @@ git clone <repository-url>
 cd TransporteRural
 ```
 
-### 2. Configurar variables de entorno
-```bash
-# Copiar archivo de ejemplo
-cp env.example .env
+### 2. Configurar Supabase
 
-# Editar variables según necesidad
-nano .env
+1. Crear un proyecto en Supabase
+2. Ejecutar las migraciones SQL en el orden indicado:
+   - `database/supabase_schema.sql`
+   - `database/migration_add_companies.sql`
+   - `database/migration_add_features.sql`
+   - `database/migration_add_bus_alerts.sql`
+3. Configurar las credenciales en `backend/.env`
+
+Ver documentación completa en `SUPABASE_SETUP.md`
+
+### 3. Configurar variables de entorno
+
+#### Backend (`backend/.env`)
+```env
+SUPABASE_URL=tu_supabase_url
+SUPABASE_ANON_KEY=tu_anon_key
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+PORT=3000
+NODE_ENV=development
 ```
 
-### 3. Levantar los servicios
+#### Frontend
+Configurar la URL del backend en los archivos de servicio correspondientes.
+
+### 4. Instalar dependencias
+
+#### Backend
 ```bash
-# Levantar todos los servicios
-docker-compose up -d
-
-# Ver logs en tiempo real
-docker-compose logs -f
-
-# Levantar solo servicios específicos
-docker-compose up -d db backend
+cd backend
+npm install
 ```
 
-### 4. Verificar servicios
+#### Mobile App
 ```bash
-# Verificar estado de contenedores
-docker-compose ps
+cd mobile
+flutter pub get
+```
 
-# Verificar logs de un servicio específico
-docker-compose logs backend
-docker-compose logs flutter
+#### Admin Web
+```bash
+cd admin_web
+flutter pub get
+```
+
+### 5. Ejecutar el sistema
+
+#### Terminal 1 - Backend
+```bash
+cd backend
+npm run dev
+```
+Espera ver: `🚌 TransporteRural API ejecutándose en puerto 3000`
+
+#### Terminal 2 - App Móvil
+```bash
+cd mobile
+flutter run -d chrome --web-port 8080
+```
+
+#### Terminal 3 - Panel Administrativo
+```bash
+cd admin_web
+flutter run -d chrome --web-port 8081
 ```
 
 ## 🌐 Acceso a los Servicios
@@ -92,78 +203,259 @@ docker-compose logs flutter
 | **Backend API** | http://localhost:3000 | API REST |
 | **App Móvil (Web)** | http://localhost:8080 | App para pasajeros |
 | **Panel Admin (Web)** | http://localhost:8081 | Dashboard administrativo |
-| **Base de Datos** | localhost:5432 | PostgreSQL |
-| **Nginx** | http://localhost:80 | Proxy (producción) |
+| **Health Check** | http://localhost:3000/health | Estado del sistema |
 
-### Endpoints de la API
+## 📡 Endpoints de la API
 
-#### Autenticación
+### Autenticación
 - `POST /api/usuarios/login` - Iniciar sesión
-- `GET /api/usuarios` - Listar usuarios
+- `GET /api/usuarios` - Listar usuarios (requiere autenticación)
 - `POST /api/usuarios` - Crear usuario
+- `PUT /api/usuarios/:id` - Actualizar usuario
+- `DELETE /api/usuarios/:id` - Eliminar usuario
 
-#### Buses
-- `GET /api/buses` - Listar buses
-- `GET /api/buses/:id` - Obtener bus específico
-- `GET /api/buses/ubicacion/:id` - Ubicación actual del bus
+### Buses
+- `GET /api/buses` - Listar todas las ubicaciones de buses
+- `GET /api/buses/active` - Obtener buses activos
+- `GET /api/buses/:busId` - Obtener ubicación de un bus específico
+- `PUT /api/buses/:busId/location` - Actualizar ubicación del bus
 - `POST /api/buses` - Crear nuevo bus
-- `PUT /api/buses/:id/ubicacion` - Actualizar ubicación
+- `PUT /api/buses/:id` - Actualizar bus
+- `DELETE /api/buses/:id` - Eliminar bus
 
-#### Rutas
-- `GET /api/rutas` - Listar rutas
-- `GET /api/rutas/:id` - Obtener ruta específica
+### Rutas
+- `GET /api/rutas` - Listar todas las rutas
+- `GET /api/rutas/:routeId` - Obtener ruta específica
 - `POST /api/rutas` - Crear nueva ruta
-- `PUT /api/rutas/:id` - Actualizar ruta
+- `PUT /api/rutas/:routeId` - Actualizar ruta
+- `DELETE /api/rutas/:routeId` - Eliminar ruta
+- `POST /api/rutas/:routeId/reverse` - Crear ruta inversa
 
-#### Recorridos
-- `GET /api/recorridos` - Listar recorridos
-- `GET /api/recorridos/activos` - Recorridos en progreso
-- `POST /api/recorridos` - Crear recorrido
-- `PUT /api/recorridos/:id/iniciar` - Iniciar recorrido
-- `PUT /api/recorridos/:id/finalizar` - Finalizar recorrido
+### Viajes (Trips)
+- `GET /api/trips` - Listar todos los viajes
+- `GET /api/trips/active` - Obtener viajes activos
+- `GET /api/trips/:id` - Obtener viaje específico
+- `POST /api/trips` - Crear nuevo viaje
+- `PUT /api/trips/:id/start` - Iniciar viaje
+- `PUT /api/trips/:id/end` - Finalizar viaje
+- `PUT /api/trips/:id/cancel` - Cancelar viaje
 
-#### Health Check
+### Calificaciones (Ratings)
+- `GET /api/ratings` - Listar calificaciones
+- `GET /api/ratings/driver/:driverId` - Calificaciones de un conductor
+- `POST /api/ratings` - Crear calificación (solo pasajeros)
+
+### Reportes de Usuarios
+- `GET /api/user-reports` - Listar reportes
+- `GET /api/user-reports/bus/:busId` - Reportes de un bus específico
+- `POST /api/user-reports` - Crear reporte
+
+### Empresas
+- `GET /api/empresas` - Listar empresas (solo super_admin)
+- `POST /api/empresas` - Crear empresa (solo super_admin)
+- `PUT /api/empresas/:id` - Actualizar empresa
+- `DELETE /api/empresas/:id` - Eliminar empresa
+
+### Notificaciones
+- `GET /api/notifications` - Obtener notificaciones del usuario
+- `POST /api/notifications` - Crear notificación
+- `PUT /api/notifications/:id/read` - Marcar como leída
+
+### Health Check
 - `GET /health` - Estado del sistema
 
-## 📱 Uso de la Aplicación
+## 📱 Funcionalidades por Rol
 
-### Credenciales de Prueba
+### Para Pasajeros (App Móvil)
 
-**Usuario Normal (App Móvil):**
-```
-Email: usuario@transporterural.com
-Contraseña: usuario123
-```
+#### 🗺️ Mapa Interactivo
+- Ver todos los buses en tiempo real
+- Filtrar por empresa, ruta o bus específico
+- Ver rutas con polilíneas
+- Ver paradas marcadas en el mapa
+- Ver alertas activas de buses
+- Centrar mapa en ubicación actual
+- Ver detalles de buses al hacer clic
 
-**Administrador (Panel Admin):**
-```
-Email: admin@transporterural.com
-Contraseña: admin123
-```
+#### 📋 Gestión de Viajes
+- Ver historial de viajes realizados
+- Ver detalles de viajes (fecha, ruta, conductor)
 
-### Funcionalidades Principales
+#### ⭐ Calificaciones
+- Calificar conductores después de un viaje
+- Ver calificaciones promedio de conductores
 
-#### Para Pasajeros
-1. **Ver buses en tiempo real** en el mapa
-2. **Consultar rutas** disponibles
-3. **Seguir buses** específicos
-4. **Obtener información** de conductores
+#### 📢 Reportes
+- Reportar problemas con buses
+- Seleccionar alertas predefinidas:
+  - Bus sucio
+  - Bus en mal estado
+  - Chofer mal humorado
+  - No acepta TNE
+  - Y más...
+- Ver alertas activas de otros usuarios
 
-#### Para Conductores
-1. **Actualizar ubicación** del bus
-2. **Iniciar/finalizar** recorridos
-3. **Ver pasajeros** en el bus
-4. **Comunicarse** con administración
+### Para Conductores (App Móvil)
 
-#### Para Administradores
-1. **Panel de control** con estadísticas en tiempo real
-2. **Gestionar buses** (CRUD completo)
-3. **Gestionar rutas** (CRUD completo)
-4. **Administrar usuarios** (CRUD completo)
-5. **Asignar roles** (Admin, Conductor, Usuario)
-6. **Monitorear sistema** en tiempo real
+#### 🚌 Gestión de Recorridos
+- Ver ruta asignada
+- Iniciar recorrido
+- Actualizar ubicación en tiempo real
+- Finalizar recorrido
+- Ver estado del bus
 
-## 🔧 Desarrollo
+#### 📍 Seguimiento
+- Ver ubicación actual en el mapa
+- Ver ruta completa con paradas
+- Actualización automática de ubicación
+
+### Para Administradores de Empresa (Panel Web)
+
+#### 👥 Gestión de Conductores
+- Crear, editar y desactivar conductores
+- Asignar conductores a buses
+- Ver estado de conductores (disponible, en ruta, fuera de servicio)
+- Ver historial de conductores
+
+#### 🚌 Gestión de Buses
+- Crear, editar y eliminar buses
+- Asociar buses a rutas
+- Ver ubicación en tiempo real
+- Ver estado de buses (activo/inactivo)
+- Ver información de conductor asignado
+
+#### 🛣️ Gestión de Rutas
+- Crear rutas manualmente o desde plantilla
+- Agregar paradas (inicio, final y paradas intermedias)
+- Crear ruta inversa automáticamente
+- Editar y eliminar rutas
+- Ver rutas en el mapa
+- Asignar buses a rutas
+
+#### 📊 Dashboard
+- Estadísticas en tiempo real
+- Número de buses activos
+- Número de conductores disponibles
+- Rutas activas
+- Viajes del día
+
+#### 📈 Reportes y Calificaciones
+- Ver reportes de usuarios sobre buses
+- Ver calificaciones de conductores
+- Responder a reportes
+- Analizar tendencias
+
+#### 🗺️ Mapa en Tiempo Real
+- Ver todos los buses de la empresa
+- Ver rutas activas
+- Seguimiento en tiempo real
+
+#### 📝 Historial de Viajes
+- Ver todos los viajes realizados
+- Filtrar por fecha, ruta, conductor
+- Ver detalles de viajes
+- Cancelar viajes programados
+
+### Para Super Administrador (Panel Web)
+
+#### 🏢 Gestión de Empresas
+- Crear, editar y eliminar empresas
+- Activar/desactivar empresas
+- Ver todas las empresas del sistema
+
+#### 👥 Gestión Global de Usuarios
+- Ver todos los usuarios del sistema
+- Crear usuarios de cualquier rol
+- Editar usuarios (excepto company_admin)
+- Eliminar usuarios (excepto company_admin)
+- Asignar roles
+
+#### 📊 Estadísticas Globales
+- Estadísticas de todas las empresas
+- Número total de usuarios
+- Número total de buses
+- Número total de rutas
+- Análisis de uso del sistema
+
+## 🗄️ Base de Datos
+
+### Tablas Principales
+
+#### `users`
+- Usuarios del sistema con roles y permisos
+- Campos: `id`, `email`, `name`, `role`, `company_id`, `active`, `driver_status`
+
+#### `companies`
+- Empresas de transporte
+- Campos: `id`, `name`, `email`, `phone`, `active`
+
+#### `routes`
+- Rutas de transporte con paradas
+- Campos: `route_id`, `name`, `schedule`, `stops`, `polyline`, `active`
+
+#### `buses`
+- Vehículos del sistema
+- Campos: `id`, `bus_id`, `company_id`, `capacity`, `active`
+
+#### `bus_locations`
+- Ubicaciones en tiempo real de buses
+- Campos: `id`, `bus_id`, `route_id`, `driver_id`, `latitude`, `longitude`, `status`
+
+#### `trips`
+- Viajes/recorridos realizados
+- Campos: `id`, `bus_id`, `route_id`, `driver_id`, `status`, `scheduled_start`, `actual_start`, `actual_end`
+
+#### `ratings`
+- Calificaciones de conductores por pasajeros
+- Campos: `id`, `trip_id`, `user_id`, `driver_id`, `rating`, `comment`
+
+#### `user_reports`
+- Reportes de usuarios sobre buses
+- Campos: `id`, `user_id`, `bus_id`, `report_type`, `description`, `tags[]`
+
+### Índices y Optimizaciones
+- Índices en campos de búsqueda frecuente
+- Índices GIN para arrays (tags en reportes)
+- Índices espaciales para consultas de ubicación
+
+## 🎨 Características de UI/UX
+
+### Paleta de Colores
+- **Verde primario** (#2E7D32) - Color principal del sistema
+- **Colores de acento** - Indigo, teal, amber para diferenciación
+- **Gradientes** - Para elementos visuales atractivos
+- **Colores de estado** - Verde (activo), amarillo (advertencia), rojo (error)
+
+### Componentes Reutilizables
+- **GeoRuLogo** - Logo del sistema con fallback a CustomPainter
+- **BusCard** - Tarjeta de información de bus
+- **RutaCard** - Tarjeta de información de ruta
+- **EnhancedMapWidget** - Widget de mapa avanzado con múltiples capas
+- **OsmMapWidget** - Widget de mapa básico con OpenStreetMap
+
+### Responsive Design
+- Diseño adaptable para web y móvil
+- Sidebars fijos en panel administrativo
+- Navegación intuitiva con tabs y menús
+
+## 🔒 Seguridad
+
+### Autenticación
+- JWT tokens para autenticación
+- Middleware de autenticación en backend
+- Validación de roles en endpoints
+
+### Autorización
+- Row Level Security (RLS) en Supabase
+- Filtrado por `company_id` para administradores de empresa
+- Protección de administradores de empresa (no editables/eliminables)
+
+### Validación
+- Validación de datos en frontend y backend
+- Sanitización de inputs
+- Manejo de errores consistente
+
+## 🧪 Desarrollo
 
 ### Estructura del Backend
 ```
@@ -173,184 +465,175 @@ backend/
 │   │   ├── buses.js
 │   │   ├── rutas.js
 │   │   ├── usuarios.js
-│   │   └── recorridos.js
-│   └── server.js        # Servidor principal
+│   │   ├── trips.js
+│   │   ├── ratings.js
+│   │   ├── user_reports.js
+│   │   ├── empresas.js
+│   │   └── notifications.js
+│   ├── services/       # Servicios de Supabase
+│   │   └── supabase.js
+│   ├── middleware/     # Middleware de autenticación
+│   │   └── auth.js
+│   ├── config/         # Configuración
+│   │   └── supabase.js
+│   └── server.js       # Servidor principal
 ├── package.json
 └── Dockerfile
 ```
 
-### Estructura del Frontend
+### Estructura del Frontend (Mobile)
 ```
 mobile/
 ├── lib/
-│   ├── models/          # Modelos de datos
-│   ├── services/        # Servicios API
-│   ├── screens/         # Pantallas
-│   ├── widgets/         # Componentes reutilizables
-│   └── providers/       # Gestión de estado
-├── pubspec.yaml
-└── Dockerfile
+│   ├── models/         # Modelos de datos
+│   ├── screens/        # Pantallas
+│   │   ├── login_screen.dart
+│   │   ├── home_screen.dart
+│   │   ├── map_screen.dart
+│   │   ├── driver_screen.dart
+│   │   └── splash_screen.dart
+│   ├── widgets/        # Componentes
+│   │   ├── bus_card.dart
+│   │   ├── ruta_card.dart
+│   │   ├── enhanced_map_widget.dart
+│   │   └── osm_map_widget.dart
+│   ├── services/       # Servicios API
+│   │   ├── api_service.dart
+│   │   └── location_service.dart
+│   ├── providers/      # Estado (Provider)
+│   │   └── app_provider.dart
+│   └── utils/          # Utilidades
+│       ├── app_colors.dart
+│       └── bus_alerts.dart
+└── pubspec.yaml
 ```
 
 ### Comandos de Desarrollo
 
 #### Backend
 ```bash
-# Entrar al contenedor
-docker-compose exec backend bash
-
 # Instalar dependencias
 npm install
 
-# Ejecutar en modo desarrollo
+# Ejecutar en desarrollo
 npm run dev
 
-# Ejecutar tests
-npm test
+# Ejecutar en producción
+npm start
 ```
 
-#### Frontend (App Móvil)
+#### Frontend (Mobile)
 ```bash
-# Navegar al directorio
-cd mobile
-
 # Instalar dependencias
 flutter pub get
 
-# Ejecutar en modo desarrollo (Web)
+# Ejecutar en web
 flutter run -d chrome --web-port 8080
+
+# Ejecutar en Android
+flutter run -d android
 
 # Ejecutar tests
 flutter test
 ```
 
-#### Panel Administrativo
+#### Frontend (Admin Web)
 ```bash
-# Navegar al directorio
-cd admin_web
-
 # Instalar dependencias
 flutter pub get
 
-# Ejecutar en modo desarrollo
+# Ejecutar en web
 flutter run -d chrome --web-port 8081
 
 # Ejecutar tests
 flutter test
 ```
 
-## 🗄️ Base de Datos
+## 🐛 Solución de Problemas
 
-### Esquema Principal
-- **usuarios** - Usuarios del sistema
-- **rutas** - Rutas de transporte
-- **paradas** - Paradas de las rutas
-- **buses** - Vehículos del sistema
-- **ubicaciones_buses** - Historial de ubicaciones
-- **recorridos** - Viajes realizados
-- **historial_ubicaciones** - Tracking de recorridos
+### Problemas Comunes
 
-### Conexión
+#### Error de conexión a Supabase
+- Verificar que las credenciales en `backend/.env` sean correctas
+- Verificar que el proyecto de Supabase esté activo
+- Verificar que las migraciones se hayan ejecutado
+
+#### Flutter no compila
 ```bash
-# Conectar a PostgreSQL
-docker-compose exec db psql -U transporterural -d transporterural
+# Limpiar cache
+flutter clean
+flutter pub get
 
-# Ver tablas
-\dt
-
-# Ver datos de ejemplo
-SELECT * FROM buses;
-SELECT * FROM rutas;
+# Verificar versión de Flutter
+flutter --version
 ```
 
-## 🚀 Despliegue en Producción
-
-### 1. Configurar SSL
+#### Puerto ya en uso
 ```bash
-# Generar certificados SSL
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout nginx/ssl/key.pem \
-  -out nginx/ssl/cert.pem
+# Verificar puertos ocupados
+netstat -ano | findstr :3000
+netstat -ano | findstr :8080
+
+# Cambiar puertos en código o variables de entorno
 ```
 
-### 2. Levantar con perfil de producción
-```bash
-# Levantar con Nginx
-docker-compose --profile production up -d
-
-# Verificar servicios
-docker-compose ps
-```
-
-### 3. Configurar dominio
-Editar `nginx/nginx.conf` y cambiar `server_name` por tu dominio.
+#### Error de tipos en Flutter
+- Verificar que todos los modelos estén actualizados
+- Ejecutar `flutter pub get` después de cambios en dependencias
+- Verificar que los tipos coincidan entre frontend y backend
 
 ## 📊 Monitoreo
 
 ### Logs
 ```bash
-# Ver logs de todos los servicios
-docker-compose logs -f
-
-# Logs específicos
+# Backend (si está en Docker)
 docker-compose logs -f backend
-docker-compose logs -f flutter
-docker-compose logs -f db
+
+# Backend (desarrollo)
+# Los logs aparecen en la consola donde se ejecuta `npm run dev`
 ```
 
-### Health Checks
+### Health Check
 ```bash
-# Verificar API
 curl http://localhost:3000/health
-
-# Verificar base de datos
-docker-compose exec db pg_isready -U transporterural
 ```
 
-## 🐛 Solución de Problemas
+## 🚀 Despliegue en Producción
 
-### Problemas Comunes
+### 1. Configurar variables de entorno de producción
+- Actualizar URLs de Supabase
+- Configurar CORS para dominio de producción
+- Configurar SSL/HTTPS
 
-#### Puerto ya en uso
+### 2. Build de aplicaciones Flutter
 ```bash
-# Verificar puertos ocupados
-netstat -tulpn | grep :3000
-netstat -tulpn | grep :5432
+# Mobile App
+cd mobile
+flutter build web --release
 
-# Cambiar puertos en docker-compose.yml
+# Admin Web
+cd admin_web
+flutter build web --release
 ```
 
-#### Error de conexión a BD
+### 3. Configurar Nginx
+- Editar `nginx/nginx.conf`
+- Configurar rutas para frontend y backend
+- Configurar SSL si es necesario
+
+### 4. Usar Docker Compose (Opcional)
 ```bash
-# Verificar que PostgreSQL esté listo
-docker-compose exec db pg_isready -U transporterural
-
-# Reiniciar servicios
-docker-compose restart db backend
+docker-compose --profile production up -d
 ```
 
-#### Flutter no compila
-```bash
-# Limpiar cache de Flutter
-docker-compose exec flutter flutter clean
-docker-compose exec flutter flutter pub get
+## 📝 Migraciones de Base de Datos
 
-# Reconstruir contenedor
-docker-compose up --build flutter
-```
+Las migraciones se ejecutan en el SQL Editor de Supabase:
 
-### Limpiar Todo
-```bash
-# Detener y eliminar contenedores
-docker-compose down
-
-# Eliminar volúmenes (¡CUIDADO! Elimina datos)
-docker-compose down -v
-
-# Limpiar imágenes no utilizadas
-docker system prune -a
-```
+1. `database/supabase_schema.sql` - Esquema base
+2. `database/migration_add_companies.sql` - Tabla de empresas
+3. `database/migration_add_features.sql` - Viajes, calificaciones, reportes
+4. `database/migration_add_bus_alerts.sql` - Sistema de alertas
 
 ## 🤝 Contribución
 
@@ -368,110 +651,21 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 
 Para soporte técnico o preguntas:
 - Crear un issue en GitHub
+- Revisar la documentación en `SETUP.md` y `SUPABASE_SETUP.md`
 - Contactar al equipo de desarrollo
-- Revisar la documentación de la API
+
+## 🎯 Roadmap
+
+### Funcionalidades Futuras
+- [ ] Notificaciones push
+- [ ] Integración con sistemas de pago
+- [ ] Análisis predictivo de demanda
+- [ ] App móvil nativa (Android/iOS)
+- [ ] Sistema de reservas
+- [ ] Integración con sistemas de transporte público
 
 ---
 
-**TransporteRural** - Conectando comunidades rurales 🚌✨
+**GeoRu** - Conectando comunidades rurales 🚌✨
 
-## 📝 Orden de Ejecución
-
-### Método 1: Con Docker Compose (Recomendado)
-
-**Paso 1: Configurar variables de entorno**
-```bash
-# Copiar archivo de ejemplo
-cp env.example .env
-
-# Editar variables según necesidad
-nano .env
-```
-
-**Paso 2: Levantar servicios (orden automático)**
-```bash
-# Docker Compose maneja el orden automáticamente:
-# 1. Base de datos (db) - se inicia primero
-# 2. Backend - espera a que db esté saludable
-# 3. Flutter - espera a que backend esté listo
-# 4. Nginx (opcional) - espera a backend y flutter
-
-docker-compose up -d
-
-# Ver logs para verificar el orden
-docker-compose logs -f
-```
-
-**Orden de inicio automático:**
-1. ✅ **Base de Datos** (`db`) - Puerto 5432
-2. ✅ **Backend API** (`backend`) - Puerto 3000 (depende de `db`)
-3. ✅ **App Flutter** (`flutter`) - Puerto 8080 (depende de `backend`)
-4. ⚙️ **Nginx** (`nginx`) - Puerto 80/443 (solo en producción)
-
----
-
-### Método 2: Sin Docker (Desarrollo Manual)
-
-**⚠️ Requisito previo:** Configurar Supabase según `SETUP.md`
-
-**Terminal 1 - Backend:**
-```bash
-cd backend
-npm install
-npm run dev
-```
-Espera ver: `🚌 TransporteRural API ejecutándose en puerto 3000`
-
-**Terminal 2 - App Móvil (Flutter):**
-```bash
-cd mobile
-flutter pub get
-flutter run -d chrome --web-port 8080
-```
-
-**Terminal 3 - Panel Administrativo (Opcional):**
-```bash
-cd admin_web
-flutter pub get
-flutter run -d chrome --web-port 8081
-```
-
-**Orden de ejecución manual:**
-1. ✅ **Backend** (Terminal 1) - Debe estar corriendo primero
-2. ✅ **App Móvil** (Terminal 2) - Se conecta al backend
-3. ✅ **Panel Admin** (Terminal 3) - Opcional, también se conecta al backend
-
----
-
-### Verificación del Orden Correcto
-
-**1. Verificar Backend:**
-```bash
-curl http://localhost:3000/health
-```
-Respuesta esperada: `{"status":"OK"}`
-
-**2. Verificar App Móvil:**
-- Abrir: http://localhost:8080
-- Debe cargar la pantalla de login
-
-**3. Verificar Panel Admin:**
-- Abrir: http://localhost:8081
-- Debe cargar la pantalla de login admin
-
----
-
-### Solución de Problemas de Orden
-
-**Si el backend no inicia:**
-- Verificar que Supabase esté configurado (ver `SETUP.md`)
-- Verificar archivo `backend/.env` existe y tiene las credenciales correctas
-
-**Si Flutter no se conecta:**
-- Verificar que el backend esté corriendo en `http://localhost:3000`
-- Revisar logs: `docker-compose logs backend` o consola de Terminal 1
-
-**Si hay errores de dependencias:**
-- Backend: `cd backend && npm install`
-- Flutter: `cd mobile && flutter pub get`
-- Admin: `cd admin_web && flutter pub get`
+Desarrollado con ❤️ usando Flutter, Node.js y Supabase
