@@ -32,6 +32,7 @@ dependencies:
   # Mapas
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
+  google_polyline_algorithm: ^3.1.0
 
   # Utilidades
   intl: ^0.18.1

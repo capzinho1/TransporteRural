@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../utils/app_localizations.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -36,16 +37,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  String _getTypeLabel(String type) {
+  String _getTypeLabel(String type, BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      switch (type) {
+        case 'drivers':
+          return 'Todos los Conductores';
+        case 'route':
+          return 'Por Ruta';
+        case 'driver':
+          return 'Personal';
+        default:
+          return 'Desconocido';
+      }
+    }
     switch (type) {
       case 'drivers':
-        return 'Todos los Conductores';
+        return localizations.translate('all_drivers');
       case 'route':
-        return 'Por Ruta';
+        return localizations.translate('by_route');
       case 'driver':
-        return 'Personal';
+        return localizations.translate('personal');
       default:
-        return 'Desconocido';
+        return localizations.translate('unknown');
     }
   }
 
@@ -62,18 +76,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime date, BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final now = DateTime.now();
     final difference = now.difference(date);
-    
+
+    if (localizations == null) {
+      if (difference.inDays > 0) {
+        return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+      } else if (difference.inHours > 0) {
+        return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+      } else if (difference.inMinutes > 0) {
+        return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+      } else {
+        return 'Hace unos momentos';
+      }
+    }
+
     if (difference.inDays > 0) {
-      return 'Hace ${difference.inDays} día${difference.inDays > 1 ? 's' : ''}';
+      return '${localizations.translate('ago')} ${difference.inDays} ${difference.inDays > 1 ? localizations.translate('days_plural') : localizations.translate('days')}';
     } else if (difference.inHours > 0) {
-      return 'Hace ${difference.inHours} hora${difference.inHours > 1 ? 's' : ''}';
+      return '${localizations.translate('ago')} ${difference.inHours} ${difference.inHours > 1 ? localizations.translate('hours_plural') : localizations.translate('hours')}';
     } else if (difference.inMinutes > 0) {
-      return 'Hace ${difference.inMinutes} minuto${difference.inMinutes > 1 ? 's' : ''}';
+      return '${localizations.translate('ago')} ${difference.inMinutes} ${difference.inMinutes > 1 ? localizations.translate('minutes_ago_plural') : localizations.translate('minutes_ago')}';
     } else {
-      return 'Hace unos momentos';
+      return localizations.translate('moments_ago');
     }
   }
 
@@ -81,19 +108,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications),
-            SizedBox(width: 8),
-            Text('Notificaciones'),
+            const Icon(Icons.notifications),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context)?.translate('notifications') ?? 'Notificaciones'),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadNotifications,
-            tooltip: 'Actualizar',
+            tooltip: AppLocalizations.of(context)?.translate('refresh') ?? 'Actualizar',
           ),
         ],
       ),
@@ -115,7 +142,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'No hay notificaciones',
+                    AppLocalizations.of(context)?.translate('no_notifications') ?? 'No hay notificaciones',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -124,7 +151,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Las notificaciones del administrador aparecerán aquí',
+                    AppLocalizations.of(context)?.translate('admin_notifications_here') ?? 'Las notificaciones del administrador aparecerán aquí',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -145,13 +172,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               itemBuilder: (context, index) {
                 final notification = appProvider.notifications[index];
                 final typeColor = _getTypeColor(notification.type);
-                
+
                 return Card(
                   elevation: 2,
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: typeColor.withOpacity(0.1),
+                      backgroundColor: typeColor.withValues(alpha: 0.1),
                       child: Icon(
                         _getTypeIcon(notification.type),
                         color: typeColor,
@@ -180,20 +207,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           children: [
                             Chip(
                               label: Text(
-                                _getTypeLabel(notification.type),
+                                _getTypeLabel(notification.type, context),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: typeColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              backgroundColor: typeColor.withOpacity(0.1),
+                              backgroundColor: typeColor.withValues(alpha: 0.1),
                               padding: EdgeInsets.zero,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              _formatDate(notification.sentAt),
+                              _formatDate(notification.sentAt, context),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -214,4 +242,3 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 }
-

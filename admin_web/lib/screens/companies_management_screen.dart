@@ -139,71 +139,70 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
           ],
         ),
         trailing: adminProvider.currentUser?.isSuperAdmin == true
-            ? PopupMenuButton(
-                icon: const Icon(Icons.more_vert),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 8),
-                        Text('Editar'),
-                      ],
+            ? Builder(
+                builder: (popupContext) => PopupMenuButton(
+                  icon: const Icon(Icons.more_vert),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.edit, size: 20),
+                          SizedBox(width: 8),
+                          Text('Editar'),
+                        ],
+                      ),
+                      onTap: () {
+                        // Usar el contexto del Builder (padre) en lugar del contexto del popup
+                        Future.delayed(const Duration(milliseconds: 150), () {
+                          if (popupContext.mounted) {
+                            _showEditEmpresaDialog(
+                                popupContext, empresa, adminProvider);
+                          }
+                        });
+                      },
                     ),
-                    onTap: () {
-                      final dialogContext = context;
-                      Navigator.pop(dialogContext);
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (dialogContext.mounted) {
-                          _showEditEmpresaDialog(
-                              dialogContext, empresa, adminProvider);
-                        }
-                      });
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: Row(
-                      children: [
-                        Icon(
-                          empresa.active ? Icons.block : Icons.check_circle,
-                          size: 20,
-                          color: empresa.active ? Colors.orange : Colors.green,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(empresa.active ? 'Desactivar' : 'Activar'),
-                      ],
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(
+                            empresa.active ? Icons.block : Icons.check_circle,
+                            size: 20,
+                            color: empresa.active ? Colors.orange : Colors.green,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(empresa.active ? 'Desactivar' : 'Activar'),
+                        ],
+                      ),
+                      onTap: () {
+                        // Usar el contexto del Builder (padre) en lugar del contexto del popup
+                        Future.delayed(const Duration(milliseconds: 150), () {
+                          if (popupContext.mounted) {
+                            _toggleEmpresaStatus(
+                                popupContext, empresa, adminProvider);
+                          }
+                        });
+                      },
                     ),
-                    onTap: () {
-                      final dialogContext = context;
-                      Navigator.pop(dialogContext);
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (dialogContext.mounted) {
-                          _toggleEmpresaStatus(
-                              dialogContext, empresa, adminProvider);
-                        }
-                      });
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Eliminar', style: TextStyle(color: Colors.red)),
-                      ],
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.delete, size: 20, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Eliminar', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                      onTap: () {
+                        // Usar el contexto del Builder (padre) en lugar del contexto del popup
+                        Future.delayed(const Duration(milliseconds: 150), () {
+                          if (popupContext.mounted) {
+                            _showDeleteConfirmDialog(
+                                popupContext, empresa, adminProvider);
+                          }
+                        });
+                      },
                     ),
-                    onTap: () {
-                      final dialogContext = context;
-                      Navigator.pop(dialogContext);
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (dialogContext.mounted) {
-                          _showDeleteConfirmDialog(
-                              dialogContext, empresa, adminProvider);
-                        }
-                      });
-                    },
-                  ),
-                ],
+                  ],
+                ),
               )
             : null,
         onTap: adminProvider.currentUser?.isSuperAdmin == true
@@ -518,24 +517,53 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
                     );
 
                     try {
-                      await adminProvider.updateEmpresa(
+                      // Cerrar el diálogo primero
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                      
+                      // Actualizar la empresa
+                      final success = await adminProvider.updateEmpresa(
                           empresa.id, empresaActualizada);
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Empresa actualizada exitosamente'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                      
+                      // Recargar la lista de empresas
+                      if (success) {
+                        await adminProvider.loadEmpresas();
+                      }
+                      
+                      // Mostrar mensaje de éxito o error
+                      if (context.mounted) {
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Empresa actualizada exitosamente'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Error: ${adminProvider.error ?? "Error desconocido"}'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      }
                     } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                      // Si hay error, cerrar el diálogo si aún está abierto
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
                     }
                   },
                   child: const Text('Guardar'),
@@ -550,14 +578,46 @@ class _CompaniesManagementScreenState extends State<CompaniesManagementScreen> {
 
   void _toggleEmpresaStatus(BuildContext context, Empresa empresa,
       AdminProvider adminProvider) async {
+    final nuevaEstado = !empresa.active;
+    final accion = nuevaEstado ? 'activar' : 'desactivar';
+    final mensaje = nuevaEstado 
+        ? '¿Está seguro de que desea activar la empresa ${empresa.name}?'
+        : '¿Está seguro de que desea desactivar la empresa ${empresa.name}?\n\n'
+          'Todos los conductores de esta empresa perderán el acceso inmediatamente.';
+    
+    // Mostrar diálogo de confirmación
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmar ${accion == 'activar' ? 'Activación' : 'Desactivación'}'),
+        content: Text(mensaje),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: nuevaEstado ? Colors.green : Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(accion == 'activar' ? 'Sí, Activar' : 'Sí, Desactivar'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmar != true) return;
+    
     try {
-      final empresaActualizada = empresa.copyWith(active: !empresa.active);
+      final empresaActualizada = empresa.copyWith(active: nuevaEstado);
       await adminProvider.updateEmpresa(empresa.id, empresaActualizada);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            empresa.active ? 'Empresa desactivada' : 'Empresa activada',
+            nuevaEstado ? 'Empresa activada' : 'Empresa desactivada',
           ),
           backgroundColor: Colors.green,
         ),

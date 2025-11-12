@@ -23,7 +23,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserEmails();
+    // Retrasar la carga hasta después del build para evitar setState durante build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserEmails();
+    });
   }
 
   Future<void> _loadUserEmails() async {
@@ -34,7 +37,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       // Cargar usuarios directamente desde el servicio sin usar el provider
       // ya que el provider puede requerir autenticación
       final apiService = AdminApiService();
-      final usuarios = await apiService.getUsuarios();
+      final usuarios = await apiService.getUsuariosPublic();
       final emails = usuarios
           .map((u) => u.email)
           .where((email) => email.isNotEmpty)
@@ -53,6 +56,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         _isLoadingUsers = false;
       });
       // No mostrar error al usuario, solo no hay autocompletado
+      print('⚠️ [ADMIN_LOGIN] No se pudieron cargar usuarios para autocompletado: $e');
     }
   }
 

@@ -58,7 +58,15 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Error HTTP ${response.statusCode}: ${response.body}');
+        // Intentar parsear el error del backend para obtener el mensaje
+        try {
+          final errorBody = jsonDecode(response.body);
+          final errorMessage = errorBody['message'] ?? errorBody['error'] ?? 'Error desconocido';
+          throw Exception(errorMessage);
+        } catch (e) {
+          // Si no se puede parsear, usar el mensaje genérico
+          throw Exception('Error HTTP ${response.statusCode}: ${response.body}');
+        }
       }
     } catch (e) {
       throw Exception('Error en petición API: $e');
@@ -67,9 +75,16 @@ class ApiService {
 
   // === RUTAS ===
   Future<List<Ruta>> getRutas() async {
+    print('📡 [API_SERVICE] Obteniendo rutas...');
     final response = await _makeRequest('GET', '/routes');
     final List<dynamic> rutasData = response['data'] ?? [];
-    return rutasData.map((json) => Ruta.fromJson(json)).toList();
+    print('📡 [API_SERVICE] Respuesta recibida: ${rutasData.length} rutas');
+    if (rutasData.isNotEmpty) {
+      print('📡 [API_SERVICE] Primera ruta raw: ${rutasData[0]}');
+    }
+    final rutas = rutasData.map((json) => Ruta.fromJson(json)).toList();
+    print('📡 [API_SERVICE] Rutas parseadas: ${rutas.length}');
+    return rutas;
   }
 
   Future<Ruta> getRuta(int id) async {
@@ -127,6 +142,12 @@ class ApiService {
   Future<Usuario> getUsuario(int id) async {
     final response = await _makeRequest('GET', '/users/$id');
     return Usuario.fromJson(response['data']);
+  }
+
+  // Verificar estado del usuario (para verificación periódica)
+  Future<Map<String, dynamic>> checkUserStatus(int id) async {
+    final response = await _makeRequest('GET', '/users/$id/status');
+    return response['data'];
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {

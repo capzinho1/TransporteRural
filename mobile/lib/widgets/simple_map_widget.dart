@@ -143,7 +143,5 @@ class SimpleMapWidget extends StatelessWidget {
     }
   }
 
-  void _showBusDetails(BusLocation bus) {
-    // TODO: Implementar detalles del bus
-  }
+  void _showBusDetails(BusLocation bus) {}
 }

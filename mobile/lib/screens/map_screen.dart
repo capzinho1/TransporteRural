@@ -145,8 +145,17 @@ class _MapScreenState extends State<MapScreen> {
                 showStops: _showStops,
                 showAlerts: _showAlerts,
                 initialBusId: widget.initialBusId,
+                selectedRouteId: _selectedRouteId,
+                selectedBusId: _selectedBusId,
                 onBusTap: (busLocation) {
                   _showBusDetails(context, busLocation);
+                  // Al presionar un bus, seleccionarlo para mostrar su ruta
+                  setState(() {
+                    _selectedBusId = busLocation.busId;
+                    if (busLocation.routeId != null) {
+                      _selectedRouteId = busLocation.routeId;
+                    }
+                  });
                 },
               ),
               if (_selectedRouteId != null ||
@@ -161,7 +170,6 @@ class _MapScreenState extends State<MapScreen> {
                     child: Material(
                       elevation: 4,
                       color: AppColors.backgroundCard,
-                      borderRadius: BorderRadius.circular(12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
@@ -622,6 +630,9 @@ class _MapScreenState extends State<MapScreen> {
   void _showBusDetails(BuildContext context, BusLocation busLocation) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => BusDetailsSheet(
         busLocation: busLocation,
         onReportProblem: () => _showReportDialog(context, busLocation),
@@ -842,7 +853,7 @@ class BusDetailsSheet extends StatelessWidget {
                               BoxShadow(
                                 color: AppColors.getBusStatusColor(
                                         busLocation.status)
-                                    .withOpacity(0.3),
+                                    .withValues(alpha: 0.3),
                                 blurRadius: 6,
                                 offset: const Offset(0, 3),
                               ),

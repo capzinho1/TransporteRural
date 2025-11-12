@@ -12,69 +12,50 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   String _selectedReport = 'overview';
-
-  Future<Map<String, dynamic>> _getPunctualityStats() async {
-    try {
-      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      return await adminProvider.apiService.getPunctualityStats();
-    } catch (e) {
-      return {};
-    }
-  }
-
-  Future<Map<String, dynamic>> _getTripsStats() async {
-    try {
-      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      final trips = await adminProvider.apiService.getTrips();
-      final completedTrips = trips.where((t) => t.status == 'completed').length;
-      // Calcular promedio diario (simplificado)
-      return {'dailyAverage': completedTrips ~/ 30}; // Aproximado
-    } catch (e) {
-      return {};
-    }
-  }
-
-  Future<int> _getDriverTripsCount(int driverId) async {
-    try {
-      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      final trips = await adminProvider.apiService.getTripsByDriver(driverId);
-      return trips.where((t) => t.status == 'completed').length;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  Future<double> _getDriverWorkHours(int driverId) async {
-    try {
-      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      final trips = await adminProvider.apiService.getTripsByDriver(driverId);
-      final completedTrips = trips
-          .where((t) => t.status == 'completed' && t.durationMinutes != null);
-      double totalMinutes = completedTrips.fold(
-          0.0, (sum, trip) => sum + (trip.durationMinutes ?? 0).toDouble());
-      return totalMinutes / 60; // Convertir a horas
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  Future<double> _getDriverRating(int driverId) async {
-    try {
-      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      final stats =
-          await adminProvider.apiService.getDriverRatingStats(driverId);
-      return stats['average'] ?? 0.0;
-    } catch (e) {
-      return 0.0;
-    }
-  }
+  String _selectedPeriod = 'month'; // 'day', 'week', 'month', 'year'
+  int? _selectedCompanyId;
+  String? _selectedRouteId;
+  Map<String, dynamic>? _statsData;
+  bool _isLoadingStats = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AdminProvider>(context, listen: false).refreshAllData();
+      _loadStats();
     });
+  }
+
+  Future<void> _loadStats() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      final stats = await adminProvider.apiService.getComprehensiveStats(
+        period: _selectedPeriod,
+        companyId: _selectedCompanyId,
+        routeId: _selectedRouteId,
+      );
+      setState(() {
+        _statsData = stats;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingStats = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar estadísticas: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -112,8 +93,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 isSuperAdmin
-                                    ? 'Estadísticas a gran escala de todas las empresas'
-                                    : 'Estadísticas y métricas de tu empresa',
+                                    ? 'Estadísticas y análisis de todas las empresas'
+                                    : 'Estadísticas y análisis de tu empresa',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -145,9 +126,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       icon: Icon(Icons.business, size: 16),
                                     ),
                                     ButtonSegment(
-                                      value: 'users',
-                                      label: Text('Usuarios'),
-                                      icon: Icon(Icons.people, size: 16),
+                                      value: 'routes',
+                                      label: Text('Rutas'),
+                                      icon: Icon(Icons.route, size: 16),
                                     ),
                                   ]
                                 : const [
@@ -161,11 +142,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       label: Text('Rutas'),
                                       icon: Icon(Icons.route, size: 16),
                                     ),
-                                    ButtonSegment(
-                                      value: 'drivers',
-                                      label: Text('Conductores'),
-                                      icon: Icon(Icons.drive_eta, size: 16),
-                                    ),
                                   ],
                             selected: {_selectedReport},
                             onSelectionChanged: (Set<String> newSelection) {
@@ -178,11 +154,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
-                        onPressed: _exportReport,
-                        icon: const Icon(Icons.download),
-                        label: const Text('Exportar'),
+                        onPressed: _loadStats,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Actualizar'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -192,33 +168,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Content based on selected report and role
-              Consumer<AdminProvider>(
-                builder: (context, adminProvider, child) {
-                  final isSuperAdmin =
-                      adminProvider.currentUser?.isSuperAdmin ?? false;
+              // Filtros
+              _buildFilters(adminProvider),
+              const SizedBox(height: 24),
 
-                  if (isSuperAdmin) {
-                    // Reportes para Super Admin
+              // Content based on selected report
+              if (_isLoadingStats)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(48.0),
+                  child: CircularProgressIndicator(),
+                ))
+              else if (_statsData == null)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(48.0),
+                  child: Text('No hay datos disponibles'),
+                ))
+              else
+                Consumer<AdminProvider>(
+                  builder: (context, adminProvider, child) {
+                    final isSuperAdmin =
+                        adminProvider.currentUser?.isSuperAdmin ?? false;
+
                     if (_selectedReport == 'overview') {
-                      return _buildSuperAdminOverviewReport(adminProvider);
-                    } else if (_selectedReport == 'companies') {
+                      return _buildOverviewReport(adminProvider, isSuperAdmin);
+                    } else if (_selectedReport == 'companies' && isSuperAdmin) {
                       return _buildCompaniesReport(adminProvider);
                     } else {
-                      return _buildUsersReport(adminProvider);
-                    }
-                  } else {
-                    // Reportes para Company Admin
-                    if (_selectedReport == 'overview') {
-                      return _buildOverviewReport(adminProvider);
-                    } else if (_selectedReport == 'routes') {
                       return _buildRoutesReport(adminProvider);
-                    } else {
-                      return _buildDriversReport(adminProvider);
                     }
-                  }
-                },
-              ),
+                  },
+                ),
             ],
           ),
         );
@@ -226,8 +205,127 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildOverviewReport(AdminProvider adminProvider) {
-    final stats = adminProvider.estadisticas;
+  Widget _buildFilters(AdminProvider adminProvider) {
+    final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+    
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filtros',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                // Filtro por período
+                SizedBox(
+                  width: 200,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedPeriod,
+                    decoration: const InputDecoration(
+                      labelText: 'Período',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'day', child: Text('Último día')),
+                      DropdownMenuItem(value: 'week', child: Text('Última semana')),
+                      DropdownMenuItem(value: 'month', child: Text('Último mes')),
+                      DropdownMenuItem(value: 'year', child: Text('Último año')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedPeriod = value;
+                        });
+                        _loadStats();
+                      }
+                    },
+                  ),
+                ),
+                // Filtro por empresa (solo super_admin)
+                if (isSuperAdmin) ...[
+                  SizedBox(
+                    width: 250,
+                    child: DropdownButtonFormField<int?>(
+                      value: _selectedCompanyId,
+                      decoration: const InputDecoration(
+                        labelText: 'Empresa',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Todas las empresas'),
+                        ),
+                        ...adminProvider.empresas.map((empresa) =>
+                            DropdownMenuItem<int?>(
+                              value: empresa.id,
+                              child: Text(empresa.name),
+                            )),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCompanyId = value;
+                        });
+                        _loadStats();
+                      },
+                    ),
+                  ),
+                ],
+                // Filtro por ruta
+                SizedBox(
+                  width: 250,
+                  child: DropdownButtonFormField<String?>(
+                    value: _selectedRouteId,
+                    decoration: const InputDecoration(
+                      labelText: 'Ruta',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Todas las rutas'),
+                      ),
+                      ...adminProvider.rutas.map((ruta) =>
+                          DropdownMenuItem<String?>(
+                            value: ruta.routeId,
+                            child: Text(ruta.name),
+                          )),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRouteId = value;
+                      });
+                      _loadStats();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverviewReport(AdminProvider adminProvider, bool isSuperAdmin) {
+    if (_statsData == null) return const SizedBox.shrink();
+
+    final summary = _statsData!['summary'] as Map<String, dynamic>? ?? {};
+    final punctuality = _statsData!['punctuality'] as Map<String, dynamic>? ?? {};
+    final passengers = _statsData!['passengers'] as Map<String, dynamic>? ?? {};
+    final duration = _statsData!['duration'] as Map<String, dynamic>? ?? {};
+    final byDay = _statsData!['byDay'] as List<dynamic>? ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,41 +336,55 @@ class _ReportsScreenState extends State<ReportsScreen> {
           runSpacing: 16,
           children: [
             _buildMetricCard(
-              'Total Buses',
-              '${stats['totalBuses'] ?? 0}',
+              'Total Viajes',
+              '${summary['total'] ?? 0}',
               Icons.directions_bus,
               Colors.blue,
-              '+5% vs mes anterior',
+              'En el período seleccionado',
             ),
             _buildMetricCard(
-              'Buses Activos',
-              '${stats['busesActivos'] ?? 0}',
+              'Completados',
+              '${summary['completed'] ?? 0}',
               Icons.check_circle,
               Colors.green,
-              '${((stats['busesActivos'] ?? 0) / (stats['totalBuses'] ?? 1) * 100).toStringAsFixed(1)}% operativos',
+              '${summary['total'] != null && summary['total'] > 0 ? ((summary['completed'] ?? 0) / summary['total'] * 100).toStringAsFixed(1) : 0}% de completación',
             ),
             _buildMetricCard(
-              'Total Rutas',
-              '${stats['totalRutas'] ?? 0}',
-              Icons.route,
-              Colors.purple,
-              'Todas activas',
-            ),
-            _buildMetricCard(
-              'Conductores',
-              '${stats['conductores'] ?? 0}',
-              Icons.drive_eta,
+              'Puntualidad',
+              '${(punctuality['punctualityRate'] ?? 0).toStringAsFixed(1)}%',
+              Icons.access_time,
               Colors.orange,
-              'Personal activo',
+              '${punctuality['onTime'] ?? 0} a tiempo, ${punctuality['delayed'] ?? 0} retrasados',
+            ),
+            _buildMetricCard(
+              'Pasajeros',
+              '${passengers['total'] ?? 0}',
+              Icons.people,
+              Colors.purple,
+              'Promedio: ${(passengers['average'] ?? 0).toStringAsFixed(1)} por viaje',
+            ),
+            _buildMetricCard(
+              'Duración Promedio',
+              '${duration['average'] ?? 0} min',
+              Icons.timer,
+              Colors.teal,
+              'Tiempo promedio de viaje',
+            ),
+            _buildMetricCard(
+              'Tasa de Completación',
+              '${(summary['completionRate'] ?? 0).toStringAsFixed(1)}%',
+              Icons.percent,
+              Colors.indigo,
+              'Viajes completados vs programados',
             ),
           ],
         ),
 
         const SizedBox(height: 32),
 
-        // Gráfico de distribución
+        // Gráfico de viajes por día
         const Text(
-          'Distribución de Buses',
+          'Viajes por Día (Últimos 30 días)',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
@@ -281,8 +393,46 @@ class _ReportsScreenState extends State<ReportsScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: SizedBox(
-              height: 250,
-              child: _buildPieChart(stats),
+              height: 300,
+              child: _buildTripsByDayChart(byDay),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        // Gráfico de estados de viajes
+        const Text(
+          'Distribución de Estados',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SizedBox(
+              height: 300,
+              child: _buildStatusDistributionChart(summary),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        // Gráfico de puntualidad
+        const Text(
+          'Análisis de Puntualidad',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SizedBox(
+              height: 200,
+              child: _buildPunctualityChart(punctuality),
             ),
           ),
         ),
@@ -291,7 +441,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
         // Tabla de resumen
         const Text(
-          'Resumen de Actividad',
+          'Resumen Detallado',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
@@ -305,69 +455,55 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
             rows: [
               DataRow(cells: [
-                const DataCell(Text('Recorridos completados (hoy)')),
-                const DataCell(Text('0')),
-                DataCell(_buildStatusBadge('Normal', Colors.green)),
+                const DataCell(Text('Total de viajes')),
+                DataCell(Text('${summary['total'] ?? 0}')),
+                DataCell(_buildStatusBadge('Normal', Colors.blue)),
               ]),
               DataRow(cells: [
-                const DataCell(Text('Buses en mantenimiento')),
-                DataCell(Text('${stats['busesInactivos'] ?? 0}')),
-                DataCell(_buildStatusBadge('Bajo', Colors.green)),
+                const DataCell(Text('Viajes completados')),
+                DataCell(Text('${summary['completed'] ?? 0}')),
+                DataCell(_buildStatusBadge('Completado', Colors.green)),
               ]),
               DataRow(cells: [
-                const DataCell(Text('Promedio de recorridos/día')),
-                DataCell(
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _getTripsStats(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final dailyAvg = snapshot.data!['dailyAverage'] ?? 0;
-                        return Text(dailyAvg.toString());
-                      }
-                      return const Text('0');
-                    },
-                  ),
-                ),
-                DataCell(_buildStatusBadge('Normal', Colors.green)),
+                const DataCell(Text('Viajes programados')),
+                DataCell(Text('${summary['scheduled'] ?? 0}')),
+                DataCell(_buildStatusBadge('Programado', Colors.orange)),
               ]),
               DataRow(cells: [
-                const DataCell(Text('Puntualidad promedio')),
-                DataCell(
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _getPunctualityStats(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final punctuality =
-                            snapshot.data!['overallPunctuality'] ?? 0.0;
-                        return Text('${punctuality.toStringAsFixed(1)}%');
-                      }
-                      return const Text('N/A');
-                    },
-                  ),
-                ),
-                DataCell(
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _getPunctualityStats(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final punctuality =
-                            snapshot.data!['overallPunctuality'] ?? 0.0;
-                        Color color = punctuality >= 90
-                            ? Colors.green
-                            : punctuality >= 70
-                                ? Colors.orange
-                                : Colors.red;
-                        String label = punctuality >= 90
-                            ? 'Excelente'
-                            : punctuality >= 70
-                                ? 'Bueno'
-                                : 'Mejorar';
-                        return _buildStatusBadge(label, color);
-                      }
-                      return _buildStatusBadge('Pendiente', Colors.grey);
-                    },
-                  ),
-                ),
+                const DataCell(Text('Viajes en progreso')),
+                DataCell(Text('${summary['inProgress'] ?? 0}')),
+                DataCell(_buildStatusBadge('En curso', Colors.blue)),
+              ]),
+              DataRow(cells: [
+                const DataCell(Text('Viajes cancelados')),
+                DataCell(Text('${summary['cancelled'] ?? 0}')),
+                DataCell(_buildStatusBadge('Cancelado', Colors.red)),
+              ]),
+              DataRow(cells: [
+                const DataCell(Text('Tasa de puntualidad')),
+                DataCell(Text('${(punctuality['punctualityRate'] ?? 0).toStringAsFixed(1)}%')),
+                DataCell(_buildStatusBadge(
+                  (punctuality['punctualityRate'] ?? 0) >= 90 ? 'Excelente' : (punctuality['punctualityRate'] ?? 0) >= 70 ? 'Bueno' : 'Mejorar',
+                  (punctuality['punctualityRate'] ?? 0) >= 90 ? Colors.green : (punctuality['punctualityRate'] ?? 0) >= 70 ? Colors.orange : Colors.red,
+                )),
+              ]),
+              DataRow(cells: [
+                const DataCell(Text('Retraso promedio')),
+                DataCell(Text('${(punctuality['avgDelay'] ?? 0).toStringAsFixed(1)} min')),
+                DataCell(_buildStatusBadge(
+                  (punctuality['avgDelay'] ?? 0) <= 0 ? 'A tiempo' : 'Retrasado',
+                  (punctuality['avgDelay'] ?? 0) <= 0 ? Colors.green : Colors.red,
+                )),
+              ]),
+              DataRow(cells: [
+                const DataCell(Text('Total de pasajeros')),
+                DataCell(Text('${passengers['total'] ?? 0}')),
+                DataCell(_buildStatusBadge('Transportados', Colors.purple)),
+              ]),
+              DataRow(cells: [
+                const DataCell(Text('Pasajeros promedio por viaje')),
+                DataCell(Text('${(passengers['average'] ?? 0).toStringAsFixed(1)}')),
+                DataCell(_buildStatusBadge('Promedio', Colors.teal)),
               ]),
             ],
           ),
@@ -376,7 +512,61 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  Widget _buildCompaniesReport(AdminProvider adminProvider) {
+    final stats = adminProvider.estadisticas;
+    final statsPorEmpresa = stats['statsPorEmpresa'] as Map<String, dynamic>?;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Comparación por Empresa',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        if (statsPorEmpresa != null && statsPorEmpresa.isNotEmpty)
+          Card(
+            elevation: 2,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Empresa')),
+                DataColumn(label: Text('Buses'), numeric: true),
+                DataColumn(label: Text('Buses Activos'), numeric: true),
+                DataColumn(label: Text('Rutas'), numeric: true),
+                DataColumn(label: Text('Usuarios'), numeric: true),
+                DataColumn(label: Text('Conductores'), numeric: true),
+              ],
+              rows: statsPorEmpresa.entries.map((entry) {
+                final empresaStats = entry.value as Map<String, dynamic>;
+                return DataRow(
+                  cells: [
+                    DataCell(Text(entry.key)),
+                    DataCell(Text('${empresaStats['totalBuses'] ?? 0}')),
+                    DataCell(Text('${empresaStats['busesActivos'] ?? 0}')),
+                    DataCell(Text('${empresaStats['totalRutas'] ?? 0}')),
+                    DataCell(Text('${empresaStats['totalUsuarios'] ?? 0}')),
+                    DataCell(Text('${empresaStats['conductores'] ?? 0}')),
+                  ],
+                );
+              }).toList(),
+            ),
+          )
+        else
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Text('No hay datos de empresas disponibles'),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildRoutesReport(AdminProvider adminProvider) {
+    if (_statsData == null) return const SizedBox.shrink();
+
+    final byRoute = _statsData!['byRoute'] as List<dynamic>? ?? [];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -386,174 +576,62 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         const SizedBox(height: 16),
 
+        // Gráfico de rutas más utilizadas
+        if (byRoute.isNotEmpty) ...[
+          const Text(
+            'Rutas Más Utilizadas',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: SizedBox(
+                height: 400,
+                child: _buildRoutesChart(byRoute, adminProvider),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+
         // Tabla de rutas
+        const Text(
+          'Estadísticas por Ruta',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
         Card(
           elevation: 2,
           child: DataTable(
             columns: const [
               DataColumn(label: Text('Ruta')),
-              DataColumn(label: Text('Buses Asignados')),
-              DataColumn(label: Text('Recorridos (Hoy)')),
-              DataColumn(label: Text('Demanda')),
+              DataColumn(label: Text('Total'), numeric: true),
+              DataColumn(label: Text('Completados'), numeric: true),
+              DataColumn(label: Text('Programados'), numeric: true),
+              DataColumn(label: Text('Pasajeros'), numeric: true),
             ],
-            rows: adminProvider.rutas.map((ruta) {
-              return DataRow(cells: [
-                DataCell(Text(ruta.name)),
-                const DataCell(Text('0')),
-                const DataCell(Text('0')),
-                DataCell(_buildDemandIndicator(0)),
-              ]);
+            rows: byRoute.map((route) {
+              final routeData = route as Map<String, dynamic>;
+              final routeId = routeData['routeId'] as String?;
+              final routeName = routeId != null
+                  ? adminProvider.rutas.firstWhere(
+                      (r) => r.routeId == routeId,
+                      orElse: () => adminProvider.rutas.first,
+                    ).name
+                  : 'Desconocida';
+              return DataRow(
+                cells: [
+                  DataCell(Text(routeName)),
+                  DataCell(Text('${routeData['total'] ?? 0}')),
+                  DataCell(Text('${routeData['completed'] ?? 0}')),
+                  DataCell(Text('${routeData['scheduled'] ?? 0}')),
+                  DataCell(Text('${routeData['passengers'] ?? 0}')),
+                ],
+              );
             }).toList(),
           ),
-        ),
-
-        const SizedBox(height: 32),
-
-        // Rutas más utilizadas
-        const Text(
-          'Rutas Más Utilizadas',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: adminProvider.rutas.take(5).map((ruta) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(ruta.name)),
-                      SizedBox(
-                        width: 200,
-                        child: LinearProgressIndicator(
-                          value: 0.0,
-                          backgroundColor: Colors.grey[200],
-                          valueColor:
-                              const AlwaysStoppedAnimation<Color>(Colors.blue),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('0 viajes'),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDriversReport(AdminProvider adminProvider) {
-    final conductores =
-        adminProvider.usuarios.where((u) => u.role == 'driver').toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Desempeño de Conductores',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-
-        // Tabla de conductores
-        Card(
-          elevation: 2,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Conductor')),
-              DataColumn(label: Text('Recorridos')),
-              DataColumn(label: Text('Horas Trabajadas')),
-              DataColumn(label: Text('Calificación')),
-            ],
-            rows: conductores.map((conductor) {
-              return DataRow(cells: [
-                DataCell(Text(conductor.name)),
-                DataCell(
-                  FutureBuilder<int>(
-                    future: _getDriverTripsCount(conductor.id),
-                    builder: (context, snapshot) {
-                      return Text('${snapshot.data ?? 0}');
-                    },
-                  ),
-                ),
-                DataCell(
-                  FutureBuilder<double>(
-                    future: _getDriverWorkHours(conductor.id),
-                    builder: (context, snapshot) {
-                      return Text(
-                          '${(snapshot.data ?? 0).toStringAsFixed(1)}h');
-                    },
-                  ),
-                ),
-                DataCell(
-                  FutureBuilder<double>(
-                    future: _getDriverRating(conductor.id),
-                    builder: (context, snapshot) {
-                      final rating = snapshot.data ?? 0.0;
-                      return _buildRatingStars(rating.round());
-                    },
-                  ),
-                ),
-              ]);
-            }).toList(),
-          ),
-        ),
-
-        const SizedBox(height: 32),
-
-        // Top conductores
-        const Text(
-          'Conductores Destacados',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: conductores.take(3).map((conductor) {
-            return Card(
-              elevation: 2,
-              child: Container(
-                width: 250,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Colors.blue[100],
-                      child: Text(
-                        conductor.name.substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      conductor.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildRatingStars(0),
-                    const SizedBox(height: 12),
-                    const Text('0 recorridos completados'),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
         ),
       ],
     );
@@ -611,35 +689,248 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildPieChart(Map<String, dynamic> stats) {
+  Widget _buildTripsByDayChart(List<dynamic> byDay) {
+    if (byDay.isEmpty) {
+      return const Center(child: Text('No hay datos disponibles'));
+    }
+
+    final spots = byDay.asMap().entries.map((entry) {
+      final dayData = entry.value as Map<String, dynamic>;
+      return FlSpot(
+        entry.key.toDouble(),
+        (dayData['completed'] ?? 0).toDouble(),
+      );
+    }).toList();
+
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: true),
+        titlesData: FlTitlesData(
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: true),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() % 5 == 0 && value.toInt() < byDay.length) {
+                  final dayData = byDay[value.toInt()] as Map<String, dynamic>;
+                  final date = dayData['date'] as String? ?? '';
+                  return Text(date.substring(5), style: const TextStyle(fontSize: 10));
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: true),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: Colors.blue,
+            barWidth: 3,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(show: true, color: Colors.blue.withValues(alpha: 0.1)),
+          ),
+        ],
+        minY: 0,
+      ),
+    );
+  }
+
+  Widget _buildStatusDistributionChart(Map<String, dynamic> summary) {
+    final completed = (summary['completed'] ?? 0).toDouble();
+    final scheduled = (summary['scheduled'] ?? 0).toDouble();
+    final inProgress = (summary['inProgress'] ?? 0).toDouble();
+    final cancelled = (summary['cancelled'] ?? 0).toDouble();
+
+    if (completed + scheduled + inProgress + cancelled == 0) {
+      return const Center(child: Text('No hay datos disponibles'));
+    }
+
     return PieChart(
       PieChartData(
         sections: [
-          PieChartSectionData(
-            value: (stats['busesActivos'] ?? 0).toDouble(),
-            title: 'Activos',
-            color: Colors.green,
-            radius: 100,
-            titleStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          if (completed > 0)
+            PieChartSectionData(
+              value: completed,
+              title: 'Completados\n${completed.toInt()}',
+              color: Colors.green,
+              radius: 100,
+              titleStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
-          PieChartSectionData(
-            value: (stats['busesInactivos'] ?? 0).toDouble(),
-            title: 'Inactivos',
-            color: Colors.grey,
-            radius: 100,
-            titleStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          if (scheduled > 0)
+            PieChartSectionData(
+              value: scheduled,
+              title: 'Programados\n${scheduled.toInt()}',
+              color: Colors.blue,
+              radius: 100,
+              titleStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
+          if (inProgress > 0)
+            PieChartSectionData(
+              value: inProgress,
+              title: 'En Progreso\n${inProgress.toInt()}',
+              color: Colors.orange,
+              radius: 100,
+              titleStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          if (cancelled > 0)
+            PieChartSectionData(
+              value: cancelled,
+              title: 'Cancelados\n${cancelled.toInt()}',
+              color: Colors.red,
+              radius: 100,
+              titleStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
         ],
         sectionsSpace: 2,
         centerSpaceRadius: 40,
+      ),
+    );
+  }
+
+  Widget _buildPunctualityChart(Map<String, dynamic> punctuality) {
+    final onTime = (punctuality['onTime'] ?? 0).toDouble();
+    final delayed = (punctuality['delayed'] ?? 0).toDouble();
+
+    if (onTime + delayed == 0) {
+      return const Center(child: Text('No hay datos disponibles'));
+    }
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: (onTime + delayed) * 1.2,
+        barTouchData: BarTouchData(enabled: false),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() == 0) return const Text('A tiempo');
+                if (value.toInt() == 1) return const Text('Retrasados');
+                return const Text('');
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: true),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: true),
+        barGroups: [
+          BarChartGroupData(
+            x: 0,
+            barRods: [
+              BarChartRodData(
+                toY: onTime,
+                color: Colors.green,
+                width: 40,
+              ),
+            ],
+          ),
+          BarChartGroupData(
+            x: 1,
+            barRods: [
+              BarChartRodData(
+                toY: delayed,
+                color: Colors.red,
+                width: 40,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoutesChart(List<dynamic> byRoute, AdminProvider adminProvider) {
+    if (byRoute.isEmpty) {
+      return const Center(child: Text('No hay datos disponibles'));
+    }
+
+    // Ordenar por total y tomar los top 10
+    final sortedRoutes = List<Map<String, dynamic>>.from(byRoute)
+      ..sort((a, b) => (b['completed'] ?? 0).compareTo(a['completed'] ?? 0));
+    final topRoutes = sortedRoutes.take(10).toList();
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: topRoutes.isEmpty ? 10 : (topRoutes.first['completed'] ?? 0) * 1.2,
+        barTouchData: BarTouchData(enabled: false),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() < topRoutes.length) {
+                  final routeData = topRoutes[value.toInt()];
+                  final routeId = routeData['routeId'] as String?;
+                  if (routeId != null) {
+                    try {
+                      final route = adminProvider.rutas.firstWhere(
+                        (r) => r.routeId == routeId,
+                      );
+                      return Text(
+                        route.name.length > 10
+                            ? '${route.name.substring(0, 10)}...'
+                            : route.name,
+                        style: const TextStyle(fontSize: 10),
+                      );
+                    } catch (e) {
+                      return Text(routeId.substring(0, 8), style: const TextStyle(fontSize: 10));
+                    }
+                  }
+                }
+                return const Text('');
+              },
+              reservedSize: 40,
+            ),
+          ),
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: true),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: true),
+        barGroups: topRoutes.asMap().entries.map((entry) {
+          return BarChartGroupData(
+            x: entry.key,
+            barRods: [
+              BarChartRodData(
+                toY: (entry.value['completed'] ?? 0).toDouble(),
+                color: Colors.blue,
+                width: 20,
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -648,7 +939,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -658,359 +949,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           fontWeight: FontWeight.bold,
           fontSize: 12,
         ),
-      ),
-    );
-  }
-
-  Widget _buildDemandIndicator(int level) {
-    Color color;
-    String label;
-
-    if (level > 70) {
-      color = Colors.red;
-      label = 'Alta';
-    } else if (level > 40) {
-      color = Colors.orange;
-      label = 'Media';
-    } else {
-      color = Colors.green;
-      label = 'Baja';
-    }
-
-    return Row(
-      children: [
-        Icon(Icons.trending_up, size: 16, color: color),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRatingStars(int rating) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (index) {
-        return Icon(
-          index < rating ? Icons.star : Icons.star_border,
-          size: 16,
-          color: Colors.amber,
-        );
-      }),
-    );
-  }
-
-  // === REPORTES PARA SUPER ADMIN ===
-
-  Widget _buildSuperAdminOverviewReport(AdminProvider adminProvider) {
-    final stats = adminProvider.estadisticas;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Métricas principales del sistema
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            _buildMetricCard(
-              'Total Empresas',
-              '${stats['totalEmpresas'] ?? 0}',
-              Icons.business,
-              Colors.deepPurple,
-              'Empresas registradas',
-            ),
-            _buildMetricCard(
-              'Total Usuarios',
-              '${stats['totalUsuarios'] ?? 0}',
-              Icons.people,
-              Colors.indigo,
-              'En todo el sistema',
-            ),
-            _buildMetricCard(
-              'Total Buses',
-              '${stats['totalBuses'] ?? 0}',
-              Icons.directions_bus,
-              Colors.blue,
-              'Flota total',
-            ),
-            _buildMetricCard(
-              'Buses Activos',
-              '${stats['busesActivos'] ?? 0}',
-              Icons.check_circle,
-              Colors.green,
-              '${((stats['busesActivos'] ?? 0) / (stats['totalBuses'] ?? 1) * 100).toStringAsFixed(1)}% operativos',
-            ),
-            _buildMetricCard(
-              'Total Rutas',
-              '${stats['totalRutas'] ?? 0}',
-              Icons.route,
-              Colors.purple,
-              'Rutas activas',
-            ),
-            _buildMetricCard(
-              'Conductores',
-              '${stats['conductores'] ?? 0}',
-              Icons.drive_eta,
-              Colors.orange,
-              'Personal activo',
-            ),
-            _buildMetricCard(
-              'Administradores',
-              '${stats['administradores'] ?? 0}',
-              Icons.admin_panel_settings,
-              Colors.teal,
-              'Super + Company Admins',
-            ),
-            _buildMetricCard(
-              'Pasajeros',
-              '${stats['pasajeros'] ?? 0}',
-              Icons.person,
-              Colors.cyan,
-              'Usuarios registrados',
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 32),
-
-        // Resumen por empresa
-        const Text(
-          'Resumen por Empresa',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        if (stats['statsPorEmpresa'] != null)
-          ...(stats['statsPorEmpresa'] as Map<String, dynamic>)
-              .entries
-              .map((entry) {
-            final empresaStats = entry.value as Map<String, dynamic>;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.business, color: Colors.deepPurple),
-                        const SizedBox(width: 8),
-                        Text(
-                          entry.key,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 24,
-                      runSpacing: 12,
-                      children: [
-                        _buildMiniStat('Buses',
-                            '${empresaStats['totalBuses'] ?? 0}', Colors.blue),
-                        _buildMiniStat(
-                            'Activos',
-                            '${empresaStats['busesActivos'] ?? 0}',
-                            Colors.green),
-                        _buildMiniStat(
-                            'Rutas',
-                            '${empresaStats['totalRutas'] ?? 0}',
-                            Colors.purple),
-                        _buildMiniStat(
-                            'Usuarios',
-                            '${empresaStats['totalUsuarios'] ?? 0}',
-                            Colors.indigo),
-                        _buildMiniStat(
-                            'Conductores',
-                            '${empresaStats['conductores'] ?? 0}',
-                            Colors.orange),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-      ],
-    );
-  }
-
-  Widget _buildCompaniesReport(AdminProvider adminProvider) {
-    final stats = adminProvider.estadisticas;
-    final statsPorEmpresa = stats['statsPorEmpresa'] as Map<String, dynamic>?;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Análisis Comparativo por Empresa',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        if (statsPorEmpresa != null && statsPorEmpresa.isNotEmpty)
-          Card(
-            elevation: 2,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('Empresa')),
-                DataColumn(label: Text('Buses'), numeric: true),
-                DataColumn(label: Text('Buses Activos'), numeric: true),
-                DataColumn(label: Text('Rutas'), numeric: true),
-                DataColumn(label: Text('Usuarios'), numeric: true),
-                DataColumn(label: Text('Conductores'), numeric: true),
-              ],
-              rows: statsPorEmpresa.entries.map((entry) {
-                final empresaStats = entry.value as Map<String, dynamic>;
-                return DataRow(
-                  cells: [
-                    DataCell(Text(entry.key)),
-                    DataCell(Text('${empresaStats['totalBuses'] ?? 0}')),
-                    DataCell(Text('${empresaStats['busesActivos'] ?? 0}')),
-                    DataCell(Text('${empresaStats['totalRutas'] ?? 0}')),
-                    DataCell(Text('${empresaStats['totalUsuarios'] ?? 0}')),
-                    DataCell(Text('${empresaStats['conductores'] ?? 0}')),
-                  ],
-                );
-              }).toList(),
-            ),
-          )
-        else
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Text('No hay datos de empresas disponibles'),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildUsersReport(AdminProvider adminProvider) {
-    final stats = adminProvider.estadisticas;
-    final usuarios = adminProvider.usuarios;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Distribución de usuarios por rol
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            _buildMetricCard(
-              'Total Usuarios',
-              '${stats['totalUsuarios'] ?? 0}',
-              Icons.people,
-              Colors.indigo,
-              'En todo el sistema',
-            ),
-            _buildMetricCard(
-              'Super Admins',
-              '${usuarios.where((u) => u.role == 'super_admin').length}',
-              Icons.admin_panel_settings,
-              Colors.orange,
-              'Administradores del sistema',
-            ),
-            _buildMetricCard(
-              'Company Admins',
-              '${usuarios.where((u) => u.role == 'company_admin').length}',
-              Icons.business_center,
-              Colors.blue,
-              'Administradores de empresa',
-            ),
-            _buildMetricCard(
-              'Conductores',
-              '${stats['conductores'] ?? 0}',
-              Icons.drive_eta,
-              Colors.orange,
-              'Personal activo',
-            ),
-            _buildMetricCard(
-              'Pasajeros',
-              '${stats['pasajeros'] ?? 0}',
-              Icons.person,
-              Colors.cyan,
-              'Usuarios finales',
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 32),
-
-        // Distribución por empresa
-        const Text(
-          'Usuarios por Empresa',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 2,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Empresa')),
-              DataColumn(label: Text('Total Usuarios'), numeric: true),
-              DataColumn(label: Text('Company Admins'), numeric: true),
-              DataColumn(label: Text('Conductores'), numeric: true),
-              DataColumn(label: Text('Pasajeros'), numeric: true),
-            ],
-            rows: adminProvider.empresas.map((empresa) {
-              final usuariosEmpresa =
-                  usuarios.where((u) => u.companyId == empresa.id).toList();
-              return DataRow(
-                cells: [
-                  DataCell(Text(empresa.name)),
-                  DataCell(Text('${usuariosEmpresa.length}')),
-                  DataCell(Text(
-                      '${usuariosEmpresa.where((u) => u.role == 'company_admin').length}')),
-                  DataCell(Text(
-                      '${usuariosEmpresa.where((u) => u.role == 'driver').length}')),
-                  DataCell(Text(
-                      '${usuariosEmpresa.where((u) => u.role == 'user').length}')),
-                ],
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMiniStat(String label, String value, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _exportReport() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Exportando reporte...'),
-        backgroundColor: Colors.green,
       ),
     );
   }

@@ -24,6 +24,7 @@ dependencies:
   latlong2: ^0.9.1
   geolocator: ^10.1.0
   geocoding: ^2.1.1
+  google_polyline_algorithm: ^3.1.0
   
   # UI y componentes
   cupertino_icons: ^1.0.6
@@ -36,9 +37,13 @@ dependencies:
   sqflite: ^2.3.0
   
   # Utilidades
-  intl: ^0.18.1
+  intl: ^0.20.2
   uuid: ^4.2.1
   connectivity_plus: ^5.0.2
+  
+  # Localización e internacionalización
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +56,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/l10n/
   
   # fonts:
   #   - family: Roboto

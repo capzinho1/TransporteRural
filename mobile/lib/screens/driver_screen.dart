@@ -19,6 +19,7 @@ class DriverScreen extends StatefulWidget {
 class _DriverScreenState extends State<DriverScreen> {
   Timer? _locationUpdateTimer;
   Timer? _dataRefreshTimer;
+  Timer? _userStatusCheckTimer;
   bool _isTrackingLocation = false;
   BusLocation? _myBus;
   Ruta? _assignedRoute;
@@ -36,6 +37,8 @@ class _DriverScreenState extends State<DriverScreen> {
       _loadDriverData();
       // Iniciar actualización automática cada 5 segundos
       _startDataRefreshTimer();
+      // Iniciar verificación de estado del usuario
+      _startUserStatusCheck();
     });
   }
 
@@ -44,6 +47,7 @@ class _DriverScreenState extends State<DriverScreen> {
     _locationUpdateTimer?.cancel();
     _dataRefreshTimer?.cancel();
     _notificationTimer?.cancel();
+    _userStatusCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -77,6 +81,41 @@ class _DriverScreenState extends State<DriverScreen> {
       if (mounted) {
         _loadDriverData();
       } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _startUserStatusCheck() {
+    // Verificar estado del usuario cada 10 segundos
+    _userStatusCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final isActive = await appProvider.checkUserStatus();
+      
+      if (!isActive && mounted) {
+        // Usuario fue desactivado, mostrar mensaje y redirigir al login
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Su cuenta de conductor ha sido desactivada. Por favor, contacte al administrador de su empresa.',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        
+        // Redirigir al login después de un breve delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+          }
+        });
+        
         timer.cancel();
       }
     });
@@ -641,7 +680,9 @@ class _DriverScreenState extends State<DriverScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Material(
             elevation: 8,
-            borderRadius: BorderRadius.circular(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             color: backgroundColor,
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -693,7 +734,7 @@ class _DriverScreenState extends State<DriverScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(bus.status).withOpacity(0.1),
+                    color: _getStatusColor(bus.status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -730,7 +771,8 @@ class _DriverScreenState extends State<DriverScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(bus.status).withOpacity(0.1),
+                          color: _getStatusColor(bus.status)
+                              .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(

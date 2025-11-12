@@ -13,7 +13,7 @@ class TripsHistoryScreen extends StatefulWidget {
 class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
   String _selectedFilter =
       'all'; // 'all', 'completed', 'in_progress', 'scheduled'
-  int? _selectedDriverId;
+  int? _selectedCompanyId;
   String? _selectedRouteId;
   List<Trip> _trips = [];
   bool _isLoading = false;
@@ -28,11 +28,18 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
 
   Future<void> _loadData() async {
     final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-    await Future.wait([
+    final futures = [
       adminProvider.loadUsuarios(),
       adminProvider.loadRutas(),
       adminProvider.loadBuses(),
-    ]);
+    ];
+    
+    // Solo cargar empresas si es super_admin
+    if (adminProvider.currentUser?.isSuperAdmin == true) {
+      futures.add(adminProvider.loadEmpresas());
+    }
+    
+    await Future.wait(futures);
     _loadTrips();
   }
 
@@ -51,9 +58,9 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
         trips = await adminProvider.apiService.getTrips();
       }
 
-      // Filtrar por conductor
-      if (_selectedDriverId != null) {
-        trips = trips.where((t) => t.driverId == _selectedDriverId).toList();
+      // Filtrar por empresa
+      if (_selectedCompanyId != null) {
+        trips = trips.where((t) => t.companyId == _selectedCompanyId).toList();
       }
 
       // Filtrar por ruta
@@ -235,25 +242,30 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  // Filtro por conductor
-                  DropdownButton<int?>(
-                    value: _selectedDriverId,
-                    hint: const Text('Todos los conductores'),
-                    items: adminProvider.usuarios
-                        .where((u) => u.role == 'driver')
-                        .map((driver) => DropdownMenuItem(
-                              value: driver.id,
-                              child: Text(driver.name),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedDriverId = value;
-                      });
-                      _loadTrips();
-                    },
-                  ),
+                  // Filtro por empresa (solo para super_admin)
+                  if (adminProvider.currentUser?.isSuperAdmin == true) ...[
+                    const SizedBox(width: 16),
+                    DropdownButton<int?>(
+                      value: _selectedCompanyId,
+                      hint: const Text('Todas las empresas'),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Todas las empresas'),
+                        ),
+                        ...adminProvider.empresas.map((empresa) => DropdownMenuItem(
+                              value: empresa.id,
+                              child: Text(empresa.name),
+                            )),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCompanyId = value;
+                        });
+                        _loadTrips();
+                      },
+                    ),
+                  ],
                   const SizedBox(width: 16),
                   // Filtro por ruta
                   DropdownButton<String?>(

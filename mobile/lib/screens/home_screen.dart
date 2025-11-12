@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../utils/app_localizations.dart';
 import '../widgets/bus_card.dart';
 import '../widgets/ruta_card.dart';
 import '../widgets/georu_logo.dart';
@@ -10,6 +12,7 @@ import '../models/bus.dart';
 import '../utils/bus_alerts.dart';
 import '../utils/app_colors.dart';
 import 'map_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _userStatusCheckTimer;
 
   @override
   void initState() {
@@ -29,13 +33,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Cargar datos después del primer frame para evitar setState durante build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
+      _startUserStatusCheck();
     });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _userStatusCheckTimer?.cancel();
     super.dispose();
+  }
+
+  void _startUserStatusCheck() {
+    // Verificar estado del usuario cada 10 segundos
+    _userStatusCheckTimer =
+        Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final isActive = await appProvider.checkUserStatus();
+
+      if (!isActive && mounted) {
+        // Usuario fue desactivado, mostrar mensaje y redirigir al login
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.translate('account_deactivated') ??
+                  'Su cuenta ha sido desactivada. Por favor, contacte al administrador.',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+
+        // Redirigir al login después de un breve delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil('/login', (route) => false);
+          }
+        });
+
+        timer.cancel();
+      }
+    });
   }
 
   Future<void> _loadInitialData() async {
@@ -46,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: _buildDrawer(context),
       appBar: AppBar(
         title: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -68,76 +113,95 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadInitialData,
+            tooltip: AppLocalizations.of(context)?.translate('refresh') ??
+                'Actualizar',
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              final appProvider =
-                  Provider.of<AppProvider>(context, listen: false);
-              final isPassenger = appProvider.currentUser?.role == 'user';
+          Builder(
+            builder: (popupContext) {
+              return PopupMenuButton<String>(
+                onSelected: (value) {
+                  final appProvider =
+                      Provider.of<AppProvider>(context, listen: false);
+                  final isPassenger = appProvider.currentUser?.role == 'user';
 
-              if (value == 'logout') {
-                _showLogoutDialog();
-              } else if (value == 'trips' && isPassenger) {
-                _showTripsHistoryDialog();
-              } else if (value == 'reports' && isPassenger) {
-                _showCreateReportDialog(busId: null);
-              }
-            },
-            itemBuilder: (context) {
-              final appProvider =
-                  Provider.of<AppProvider>(context, listen: false);
-              final isPassenger = appProvider.currentUser?.role == 'user';
+                  if (value == 'logout') {
+                    _showLogoutDialog();
+                  } else if (value == 'trips' && isPassenger) {
+                    _showTripsHistoryDialog();
+                  } else if (value == 'reports' && isPassenger) {
+                    _showCreateReportDialog(busId: null);
+                  }
+                },
+                itemBuilder: (context) {
+                  final appProvider =
+                      Provider.of<AppProvider>(context, listen: false);
+                  final isPassenger = appProvider.currentUser?.role == 'user';
+                  final loc = AppLocalizations.of(context);
 
-              final items = <PopupMenuItem<String>>[];
+                  final items = <PopupMenuItem<String>>[];
 
-              if (isPassenger) {
-                items.addAll([
-                  const PopupMenuItem(
-                    value: 'trips',
-                    child: Row(
-                      children: [
-                        Icon(Icons.history, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Text('Historial de Viajes'),
-                      ],
+                  if (isPassenger) {
+                    items.addAll([
+                      PopupMenuItem(
+                        value: 'trips',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(loc?.translate('trip_history') ??
+                                'Historial de Viajes'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'reports',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.report, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            Text(loc?.translate('create_report') ??
+                                'Crear Reporte'),
+                          ],
+                        ),
+                      ),
+                    ]);
+                  }
+
+                  items.add(
+                    PopupMenuItem(
+                      value: 'logout',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.logout, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Text(loc?.translate('logout') ?? 'Cerrar Sesión'),
+                        ],
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'reports',
-                    child: Row(
-                      children: [
-                        Icon(Icons.report, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text('Crear Reporte'),
-                      ],
-                    ),
-                  ),
-                ]);
-              }
+                  );
 
-              items.add(
-                const PopupMenuItem(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Cerrar Sesión'),
-                    ],
-                  ),
-                ),
+                  return items;
+                },
               );
-
-              return items;
             },
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.directions_bus), text: 'Buses'),
-            Tab(icon: Icon(Icons.route), text: 'Rutas'),
-            Tab(icon: Icon(Icons.map), text: 'Mapa'),
+          tabs: [
+            Tab(
+              icon: const Icon(Icons.directions_bus),
+              text: AppLocalizations.of(context)?.translate('buses') ?? 'Buses',
+            ),
+            Tab(
+              icon: const Icon(Icons.route),
+              text:
+                  AppLocalizations.of(context)?.translate('routes') ?? 'Rutas',
+            ),
+            Tab(
+              icon: const Icon(Icons.map),
+              text: AppLocalizations.of(context)?.translate('map') ?? 'Mapa',
+            ),
           ],
         ),
       ),
@@ -156,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           if (isPassenger) {
             // Menú flotante expandible para pasajeros
             return FloatingActionButton(
+              heroTag: 'home_passenger_menu',
               onPressed: () {
                 _showPassengerMenu(context);
               },
@@ -164,6 +229,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           } else {
             // Botón flotante normal para otros roles
             return FloatingActionButton(
+              heroTag: 'home_map_button',
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const MapScreen()),
@@ -177,13 +243,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       // Botón flotante adicional para mapa completo (visible para todos)
       persistentFooterButtons: [
         FloatingActionButton.extended(
+          heroTag: 'home_full_map_button',
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (context) => const MapScreen()),
             );
           },
           icon: const Icon(Icons.map),
-          label: const Text('Mapa Completo'),
+          label: Text(AppLocalizations.of(context)?.translate('full_map') ??
+              'Mapa Completo'),
           backgroundColor: Colors.green,
         ),
       ],
@@ -220,19 +288,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
 
         if (appProvider.busLocations.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                const Icon(
                   Icons.directions_bus_outlined,
                   size: 64,
                   color: Colors.grey,
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
-                  'No hay buses disponibles',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  AppLocalizations.of(context)
+                          ?.translate('no_buses_available') ??
+                      'No hay buses disponibles',
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ],
             ),
@@ -279,7 +349,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loadInitialData,
-                  child: const Text('Reintentar'),
+                  child: Text(
+                      AppLocalizations.of(context)?.translate('retry') ??
+                          'Reintentar'),
                 ),
               ],
             ),
@@ -287,15 +359,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
 
         if (appProvider.rutas.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.route_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
+                const Icon(Icons.route_outlined, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
                 Text(
-                  'No hay rutas disponibles',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  AppLocalizations.of(context)
+                          ?.translate('no_routes_available') ??
+                      'No hay rutas disponibles',
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ],
             ),
@@ -323,24 +397,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _showLogoutDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cerrar Sesión'),
-        content: const Text('¿Estás seguro de que quieres cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Provider.of<AppProvider>(context, listen: false).logout();
-              Navigator.of(context).pushReplacementNamed('/login');
-            },
-            child: const Text('Cerrar Sesión'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final localizations = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(localizations.translate('logout')),
+          content: Text(localizations.translate('logout_confirmation')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(localizations.translate('cancel')),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Provider.of<AppProvider>(context, listen: false).logout();
+                Navigator.of(context).pushReplacementNamed('/login');
+              },
+              child: Text(localizations.translate('logout')),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -362,8 +439,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 24),
             ListTile(
               leading: const Icon(Icons.history, color: Colors.blue),
-              title: const Text('Historial de Viajes'),
-              subtitle: const Text('Ver tus viajes completados'),
+              title: Text(
+                  AppLocalizations.of(context)?.translate('trip_history') ??
+                      'Historial de Viajes'),
+              subtitle: Text(AppLocalizations.of(context)
+                      ?.translate('view_completed_trips') ??
+                  'Ver tus viajes completados'),
               onTap: () {
                 Navigator.pop(context);
                 _showTripsHistoryDialog();
@@ -371,8 +452,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             ListTile(
               leading: const Icon(Icons.report, color: Colors.orange),
-              title: const Text('Crear Reporte'),
-              subtitle: const Text('Enviar queja o sugerencia'),
+              title: Text(
+                  AppLocalizations.of(context)?.translate('create_report') ??
+                      'Crear Reporte'),
+              subtitle: Text(AppLocalizations.of(context)
+                      ?.translate('send_complaint_suggestion') ??
+                  'Enviar queja o sugerencia'),
               onTap: () {
                 Navigator.pop(context);
                 _showCreateReportDialog(busId: null);
@@ -380,7 +465,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             ListTile(
               leading: const Icon(Icons.map, color: Colors.green),
-              title: const Text('Ver Mapa Completo'),
+              title: Text(
+                  AppLocalizations.of(context)?.translate('view_full_map') ??
+                      'Ver Mapa Completo'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
@@ -404,128 +491,144 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Historial de Viajes'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: appProvider.completedTrips.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.history, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No hay viajes completados',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: appProvider.completedTrips.length,
-                  itemBuilder: (context, index) {
-                    final trip = appProvider.completedTrips[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: const Icon(Icons.directions_bus,
-                            color: Colors.green),
-                        title: Text(
-                          'Viaje #${trip.id}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (trip.routeId != null)
-                              Text('Ruta: ${trip.routeId}'),
-                            if (trip.actualStart != null)
-                              Text(
-                                'Fecha: ${_formatDateTime(trip.actualStart!)}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            if (trip.durationMinutes != null)
-                              Text(
-                                'Duración: ${trip.durationMinutes} min',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                          ],
-                        ),
-                        trailing: trip.driverId != null
-                            ? IconButton(
-                                icon:
-                                    const Icon(Icons.star, color: Colors.amber),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  _showRatingDialog(trip);
-                                },
-                                tooltip: 'Calificar conductor',
-                              )
-                            : null,
-                        onTap: () {
-                          Navigator.pop(context);
-                          _showTripDetailsDialog(trip);
-                        },
+      builder: (context) {
+        final localizations = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(localizations.translate('trip_history')),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: appProvider.completedTrips.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.history,
+                              size: 64, color: Colors.grey),
+                          const SizedBox(height: 16),
+                          Text(
+                            localizations.translate('no_completed_trips'),
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cerrar'),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: appProvider.completedTrips.length,
+                    itemBuilder: (context, index) {
+                      final trip = appProvider.completedTrips[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: const Icon(Icons.directions_bus,
+                              color: Colors.green),
+                          title: Text(
+                            '${localizations.translate('trip')} #${trip.id}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (trip.routeId != null)
+                                Text(
+                                    '${localizations.translate('route_label')}: ${trip.routeId}'),
+                              if (trip.actualStart != null)
+                                Text(
+                                  '${localizations.translate('date_label')}: ${_formatDateTime(trip.actualStart!)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              if (trip.durationMinutes != null)
+                                Text(
+                                  '${localizations.translate('duration_label')}: ${trip.durationMinutes} ${localizations.translate('minutes')}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                            ],
+                          ),
+                          trailing: trip.driverId != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.star,
+                                      color: Colors.amber),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _showRatingDialog(trip);
+                                  },
+                                  tooltip:
+                                      localizations.translate('rate_driver'),
+                                )
+                              : null,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showTripDetailsDialog(trip);
+                          },
+                        ),
+                      );
+                    },
+                  ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(localizations.translate('close')),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _showTripDetailsDialog(Trip trip) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Viaje #${trip.id}'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildDetailRow('Estado', trip.statusLabel),
-              if (trip.routeId != null) _buildDetailRow('Ruta', trip.routeId!),
-              _buildDetailRow('Bus', trip.busId),
-              if (trip.actualStart != null)
-                _buildDetailRow('Inicio', _formatDateTime(trip.actualStart!)),
-              if (trip.actualEnd != null)
-                _buildDetailRow('Fin', _formatDateTime(trip.actualEnd!)),
-              if (trip.durationMinutes != null)
-                _buildDetailRow('Duración', '${trip.durationMinutes} minutos'),
-              if (trip.passengerCount > 0)
-                _buildDetailRow('Pasajeros', '${trip.passengerCount}'),
-            ],
-          ),
-        ),
-        actions: [
-          if (trip.driverId != null)
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _showRatingDialog(trip);
-              },
-              icon: const Icon(Icons.star),
-              label: const Text('Calificar Conductor'),
+      builder: (context) {
+        final localizations = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text('${localizations.translate('trip')} #${trip.id}'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDetailRow(
+                    localizations.translate('status'), trip.statusLabel),
+                if (trip.routeId != null)
+                  _buildDetailRow(
+                      localizations.translate('route_label'), trip.routeId!),
+                _buildDetailRow(localizations.translate('bus'), trip.busId),
+                if (trip.actualStart != null)
+                  _buildDetailRow(localizations.translate('start'),
+                      _formatDateTime(trip.actualStart!)),
+                if (trip.actualEnd != null)
+                  _buildDetailRow(localizations.translate('end'),
+                      _formatDateTime(trip.actualEnd!)),
+                if (trip.durationMinutes != null)
+                  _buildDetailRow(localizations.translate('duration_label'),
+                      '${trip.durationMinutes} ${localizations.translate('duration_minutes')}'),
+                if (trip.passengerCount > 0)
+                  _buildDetailRow(localizations.translate('passengers'),
+                      '${trip.passengerCount}'),
+              ],
             ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cerrar'),
           ),
-        ],
-      ),
+          actions: [
+            if (trip.driverId != null)
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showRatingDialog(trip);
+                },
+                icon: const Icon(Icons.star),
+                label: Text(localizations.translate('rate_driver_title')),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(localizations.translate('close')),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1082,6 +1185,126 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final user = appProvider.currentUser;
+        final isPassenger = user?.role == 'user';
+
+        return Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // Header del Drawer
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Colors.green[700],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const GeoRuLogo(
+                      size: 48,
+                      showText: true,
+                      showSlogan: false,
+                    ),
+                    const SizedBox(height: 16),
+                    if (user != null) ...[
+                      Text(
+                        user.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        user.email,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Opciones del menú para pasajeros
+              if (isPassenger) ...[
+                ListTile(
+                  leading: const Icon(Icons.history),
+                  title: Text(localizations.translate('trip_history')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showTripsHistoryDialog();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.report),
+                  title: Text(localizations.translate('create_report')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showCreateReportDialog(busId: null);
+                  },
+                ),
+                const Divider(),
+              ],
+
+              // Configuración
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: Text(localizations.translate('configuration')),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              // Mapa completo
+              ListTile(
+                leading: const Icon(Icons.map),
+                title: Text(localizations.translate('full_map')),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MapScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(),
+
+              // Cerrar sesión
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: Text(
+                  localizations.translate('logout'),
+                  style: const TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showLogoutDialog();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,8 +1,8 @@
 /// Configuración para OpenStreetMap
 class OpenStreetMapConfig {
-  // Configuración por defecto (Santiago, Chile)
-  static const double defaultLatitude = -33.4489;
-  static const double defaultLongitude = -70.6693;
+  // Configuración por defecto (Talca, Chile)
+  static const double defaultLatitude = -35.4264;
+  static const double defaultLongitude = -71.6558;
   static const double defaultZoom = 12.0;
   static const double minZoom = 3.0;
   static const double maxZoom = 18.0;

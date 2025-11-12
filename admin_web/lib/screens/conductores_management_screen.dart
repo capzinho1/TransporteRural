@@ -235,7 +235,8 @@ class _ConductoresManagementScreenState
                     ),
                     label: Text(conductor.isActive ? 'Desactivar' : 'Activar'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: conductor.isActive ? Colors.orange : Colors.green,
+                      foregroundColor:
+                          conductor.isActive ? Colors.orange : Colors.green,
                     ),
                   ),
                 ),
@@ -306,7 +307,8 @@ class _ConductoresManagementScreenState
               _buildDetailRow('Email', conductor.email),
               _buildDetailRow('Rol', 'Conductor'),
               _buildDetailRow('Estado', conductor.statusLabel),
-              _buildDetailRow('Cuenta', conductor.isActive ? 'Activa' : 'Inactiva'),
+              _buildDetailRow(
+                  'Cuenta', conductor.isActive ? 'Activa' : 'Inactiva'),
               const SizedBox(height: 16),
               const Text(
                 'Estadísticas:',
@@ -319,19 +321,24 @@ class _ConductoresManagementScreenState
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const CircularProgressIndicator();
                   }
-                  
+
                   final stats = snapshot.data ?? {};
                   final tripsCount = stats['tripsCount'] ?? 0;
                   final avgRating = stats['avgRating'] ?? 0.0;
                   final punctuality = stats['punctuality'] ?? 0.0;
-                  
+
                   return Column(
                     children: [
-                      _buildDetailRow('Viajes completados', tripsCount.toString()),
-                      _buildDetailRow('Calificación promedio', 
-                        avgRating > 0 ? '${avgRating.toStringAsFixed(1)}/5' : 'N/A'),
+                      _buildDetailRow(
+                          'Viajes completados', tripsCount.toString()),
+                      _buildDetailRow(
+                          'Calificación promedio',
+                          avgRating > 0
+                              ? '${avgRating.toStringAsFixed(1)}/5'
+                              : 'N/A'),
                       if (punctuality > 0)
-                        _buildDetailRow('Puntualidad', '${punctuality.toStringAsFixed(1)}%'),
+                        _buildDetailRow('Puntualidad',
+                            '${punctuality.toStringAsFixed(1)}%'),
                     ],
                   );
                 },
@@ -388,7 +395,7 @@ class _ConductoresManagementScreenState
     final nameController = TextEditingController(text: conductor?.name ?? '');
     final emailController = TextEditingController(text: conductor?.email ?? '');
     final passwordController = TextEditingController();
-    
+
     // Variables de estado para el diálogo
     String selectedStatus = conductor?.driverStatus ?? 'disponible';
     bool isActive = conductor?.isActive ?? true;
@@ -397,214 +404,255 @@ class _ConductoresManagementScreenState
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-        title: Text(
-          conductor == null ? 'Nuevo Conductor' : 'Editar Conductor',
-        ),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: 500,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre Completo *',
-                    hintText: 'Ej: Juan Pérez González',
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email *',
-                    hintText: 'conductor@ejemplo.com',
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (conductor == null)
+          title: Text(
+            conductor == null ? 'Nuevo Conductor' : 'Editar Conductor',
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   TextField(
-                    controller: passwordController,
-                    obscureText: true,
+                    controller: nameController,
                     decoration: const InputDecoration(
-                      labelText: 'Contraseña *',
-                      hintText: '••••••••',
-                      prefixIcon: Icon(Icons.lock),
+                      labelText: 'Nombre Completo *',
+                      hintText: 'Ej: Juan Pérez González',
+                      prefixIcon: Icon(Icons.person),
                     ),
-                  ),
-                if (conductor == null) const SizedBox(height: 16),
-                // Estado del conductor (solo para conductores)
-                if (conductor != null) ...[
-                  const Text(
-                    'Estado del Conductor',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: selectedStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Estado',
-                      prefixIcon: Icon(Icons.drive_eta),
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'disponible',
-                        child: Text('Disponible'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'en_ruta',
-                        child: Text('En Ruta'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'fuera_de_servicio',
-                        child: Text('Fuera de Servicio'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'en_descanso',
-                        child: Text('En Descanso'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() {
-                          selectedStatus = value;
-                        });
-                      }
-                    },
                   ),
                   const SizedBox(height: 16),
-                ],
-                // Activar/Desactivar cuenta
-                Row(
-                  children: [
-                    Checkbox(
-                      value: isActive,
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email *',
+                      hintText: 'conductor@ejemplo.com',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (conductor == null)
+                    TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña *',
+                        hintText: '••••••••',
+                        prefixIcon: Icon(Icons.lock),
+                      ),
+                    ),
+                  if (conductor == null) const SizedBox(height: 16),
+                  // Estado del conductor (solo para conductores)
+                  if (conductor != null) ...[
+                    const Text(
+                      'Estado del Conductor',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(
+                        labelText: 'Estado',
+                        prefixIcon: Icon(Icons.drive_eta),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'disponible',
+                          child: Text('Disponible'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'en_ruta',
+                          child: Text('En Ruta'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'fuera_de_servicio',
+                          child: Text('Fuera de Servicio'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'en_descanso',
+                          child: Text('En Descanso'),
+                        ),
+                      ],
                       onChanged: (value) {
-                        setDialogState(() {
-                          isActive = value ?? true;
-                        });
+                        if (value != null) {
+                          setDialogState(() {
+                            selectedStatus = value;
+                          });
+                        }
                       },
                     ),
-                    const Text('Cuenta activa'),
+                    const SizedBox(height: 16),
                   ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
+                  // Activar/Desactivar cuenta
+                  Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'El conductor podrá actualizar su ubicación desde la app móvil',
-                          style: TextStyle(fontSize: 12, color: Colors.blue),
-                        ),
+                      Checkbox(
+                        value: isActive,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            isActive = value ?? true;
+                          });
+                        },
                       ),
+                      const Text('Cuenta activa'),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          if (conductor != null)
-            TextButton(
-              onPressed: () => _confirmDelete(context, conductor),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Eliminar'),
-            ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty || emailController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Por favor completa todos los campos'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              if (conductor == null && passwordController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('La contraseña es requerida'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              final adminProvider =
-                  Provider.of<AdminProvider>(context, listen: false);
-              
-              // Crear el objeto Usuario para el conductor
-              final newConductor = Usuario(
-                id: conductor?.id ?? 0,
-                name: nameController.text.trim(),
-                email: emailController.text.trim(),
-                role: 'driver',
-              );
-              
-              // Para crear el conductor, necesitamos enviar también la contraseña
-              // Crear un mapa con los datos adicionales (password) que no están en el modelo Usuario
-              final conductorData = newConductor.toJson();
-              if (conductor == null && passwordController.text.isNotEmpty) {
-                conductorData['password'] = passwordController.text;
-              }
-              
-              // Agregar campos adicionales
-              conductorData['active'] = isActive;
-              if (conductor != null) {
-                conductorData['driver_status'] = selectedStatus;
-              }
-
-              bool success;
-
-              if (conductor == null) {
-                // Usar el método del servicio directamente para enviar el password
-                success = await adminProvider.createUsuarioWithData(conductorData);
-              } else {
-                // Actualizar con los nuevos campos
-                final usuarioActualizado = newConductor.copyWith(
-                  active: isActive,
-                  driverStatus: selectedStatus,
-                );
-                success = await adminProvider.updateUsuario(
-                    conductor.id, usuarioActualizado);
-              }
-
-              if (success && context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      conductor == null
-                          ? 'Conductor registrado exitosamente'
-                          : 'Conductor actualizado exitosamente',
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    backgroundColor: Colors.green,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'El conductor podrá actualizar su ubicación desde la app móvil',
+                            style: TextStyle(fontSize: 12, color: Colors.blue),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }
-            },
-            child: Text(conductor == null ? 'Registrar' : 'Actualizar'),
+                ],
+              ),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            if (conductor != null)
+              TextButton(
+                onPressed: () => _confirmDelete(context, conductor),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Eliminar'),
+              ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty ||
+                    emailController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Por favor completa todos los campos'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (conductor == null && passwordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('La contraseña es requerida'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                final adminProvider =
+                    Provider.of<AdminProvider>(context, listen: false);
+
+                // Crear el objeto Usuario para el conductor
+                final newConductor = Usuario(
+                  id: conductor?.id ?? 0,
+                  name: nameController.text.trim(),
+                  email: emailController.text.trim(),
+                  role: 'driver',
+                );
+
+                // Para crear el conductor, necesitamos enviar también la contraseña
+                // Crear un mapa con los datos adicionales (password) que no están en el modelo Usuario
+                final conductorData = newConductor.toJson();
+                if (conductor == null && passwordController.text.isNotEmpty) {
+                  conductorData['password'] = passwordController.text;
+                }
+
+                // Agregar campos adicionales
+                conductorData['active'] = isActive;
+                if (conductor != null) {
+                  conductorData['driver_status'] = selectedStatus;
+                }
+
+                bool success;
+
+                if (conductor == null) {
+                  // Usar el método del servicio directamente para enviar el password
+                  success =
+                      await adminProvider.createUsuarioWithData(conductorData);
+                } else {
+                  // Si se está editando y cambió el estado activo, pedir confirmación
+                  if (conductor.isActive != isActive) {
+                    final accion = isActive ? 'activar' : 'desactivar';
+                    final mensaje = isActive
+                        ? '¿Está seguro de que desea activar al conductor ${conductor.name}?'
+                        : '¿Está seguro de que desea desactivar al conductor ${conductor.name}?\n\n'
+                            'El conductor perderá el acceso inmediatamente y será desconectado de la aplicación.';
+
+                    final confirmar = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text(
+                            'Confirmar ${accion == 'activar' ? 'Activación' : 'Desactivación'}'),
+                        content: Text(mensaje),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancelar'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  isActive ? Colors.green : Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Text(accion == 'activar'
+                                ? 'Sí, Activar'
+                                : 'Sí, Desactivar'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmar != true) {
+                      return; // Cancelar la operación
+                    }
+                  }
+
+                  // Actualizar con los nuevos campos
+                  final usuarioActualizado = newConductor.copyWith(
+                    active: isActive,
+                    driverStatus: selectedStatus,
+                  );
+                  success = await adminProvider.updateUsuario(
+                      conductor.id, usuarioActualizado);
+                }
+
+                if (success && context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        conductor == null
+                            ? 'Conductor registrado exitosamente'
+                            : 'Conductor actualizado exitosamente',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: Text(conductor == null ? 'Registrar' : 'Actualizar'),
+            ),
+          ],
         ),
       ),
     );
@@ -613,14 +661,15 @@ class _ConductoresManagementScreenState
   Future<Map<String, dynamic>> _getConductorStats(int driverId) async {
     try {
       final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      
+
       // Obtener viajes del conductor
       final trips = await adminProvider.apiService.getTripsByDriver(driverId);
       final completedTrips = trips.where((t) => t.status == 'completed').length;
-      
+
       // Obtener calificaciones
-      final ratingStats = await adminProvider.apiService.getDriverRatingStats(driverId);
-      
+      final ratingStats =
+          await adminProvider.apiService.getDriverRatingStats(driverId);
+
       return {
         'tripsCount': completedTrips,
         'avgRating': ratingStats['average'] ?? 0.0,
@@ -646,19 +695,54 @@ class _ConductoresManagementScreenState
     }
   }
 
-  Future<void> _toggleConductorStatus(BuildContext context, Usuario conductor) async {
-    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-    
+  Future<void> _toggleConductorStatus(
+      BuildContext context, Usuario conductor) async {
     final nuevaEstado = !conductor.isActive;
+    final accion = nuevaEstado ? 'activar' : 'desactivar';
+    final mensaje = nuevaEstado
+        ? '¿Está seguro de que desea activar al conductor ${conductor.name}?'
+        : '¿Está seguro de que desea desactivar al conductor ${conductor.name}?\n\n'
+            'El conductor perderá el acceso inmediatamente y será desconectado de la aplicación.';
+
+    // Mostrar diálogo de confirmación
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+            'Confirmar ${accion == 'activar' ? 'Activación' : 'Desactivación'}'),
+        content: Text(mensaje),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: nuevaEstado ? Colors.green : Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(accion == 'activar' ? 'Sí, Activar' : 'Sí, Desactivar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    if (!context.mounted) return;
+
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
     final usuarioActualizado = conductor.copyWith(active: nuevaEstado);
-    
-    final success = await adminProvider.updateUsuario(conductor.id, usuarioActualizado);
-    
+
+    final success =
+        await adminProvider.updateUsuario(conductor.id, usuarioActualizado);
+
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            nuevaEstado 
+            nuevaEstado
                 ? 'Conductor ${conductor.name} activado exitosamente'
                 : 'Conductor ${conductor.name} desactivado exitosamente',
           ),
@@ -669,7 +753,8 @@ class _ConductoresManagementScreenState
     } else if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al ${nuevaEstado ? 'activar' : 'desactivar'} conductor: ${adminProvider.error ?? "Error desconocido"}'),
+          content: Text(
+              'Error al $accion conductor: ${adminProvider.error ?? "Error desconocido"}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -696,12 +781,12 @@ class _ConductoresManagementScreenState
             onPressed: () async {
               final adminProvider =
                   Provider.of<AdminProvider>(context, listen: false);
-              
+
               // Cerrar el diálogo primero
               if (context.mounted) {
                 Navigator.pop(context);
               }
-              
+
               final success = await adminProvider.deleteUsuario(conductor.id);
 
               if (success && context.mounted) {
@@ -715,14 +800,15 @@ class _ConductoresManagementScreenState
                     duration: const Duration(seconds: 4),
                   ),
                 );
-                
+
                 // Recargar datos para actualizar la vista
                 await adminProvider.loadBuses();
                 await adminProvider.loadUsuarios();
               } else if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Error al eliminar conductor: ${adminProvider.error ?? "Error desconocido"}'),
+                    content: Text(
+                        'Error al eliminar conductor: ${adminProvider.error ?? "Error desconocido"}'),
                     backgroundColor: Colors.red,
                   ),
                 );

@@ -4,6 +4,7 @@ import '../providers/admin_provider.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
 import '../models/bus.dart';
+import '../widgets/route_dialog.dart';
 
 class RoutesManagementScreen extends StatefulWidget {
   const RoutesManagementScreen({super.key});
@@ -451,354 +452,22 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
   }
 
   void _showManualRouteDialog(BuildContext context, Ruta? ruta) {
-    // Si es edición, cargar datos existentes
-    final nameController = TextEditingController(text: ruta?.name ?? '');
-    final scheduleController =
-        TextEditingController(text: ruta?.schedule ?? '06:00 - 22:00');
-    final inicioController = TextEditingController();
-    final finalController = TextEditingController();
-
-    // Si es edición y hay paradas, el inicio y final son la primera y última parada
-    if (ruta != null && ruta.stops.isNotEmpty) {
-      inicioController.text = ruta.stops.first.name;
-      if (ruta.stops.length > 1) {
-        finalController.text = ruta.stops.last.name;
-      }
-    }
-
-    // Lista de paradas intermedias (sin inicio y final)
-    List<String> paradasNombres = [];
-    if (ruta != null && ruta.stops.length > 2) {
-      // Excluir primera y última parada
-      paradasNombres = ruta.stops
-          .sublist(1, ruta.stops.length - 1)
-          .map((p) => p.name)
-          .toList();
-    }
-
-    // Variable para controlar si se crea la ruta inversa (solo para nuevas rutas)
-    bool createReverseRoute = false;
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(ruta == null ? 'Crear Nueva Ruta' : 'Editar Ruta'),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 600,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre de Ruta *',
-                      hintText: 'Ruta Centro - Norte',
-                      prefixIcon: Icon(Icons.route),
-                      helperText: 'Nombre descriptivo de la ruta',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: scheduleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Horario *',
-                      hintText: '06:00 - 22:00',
-                      prefixIcon: Icon(Icons.schedule),
-                      helperText: 'Horario de operación de la ruta',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Puntos de la Ruta',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: inicioController,
-                    decoration: const InputDecoration(
-                      labelText: 'Punto de Inicio *',
-                      hintText: 'Ej: Terminal Central',
-                      prefixIcon:
-                          Icon(Icons.play_circle_outline, color: Colors.green),
-                      helperText: 'Punto de partida de la ruta',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: finalController,
-                    decoration: const InputDecoration(
-                      labelText: 'Punto Final *',
-                      hintText: 'Ej: Terminal Norte',
-                      prefixIcon:
-                          Icon(Icons.stop_circle_outlined, color: Colors.red),
-                      helperText: 'Destino final de la ruta',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Paradas Intermedias',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setDialogState(() {
-                            paradasNombres.add('');
-                          });
-                        },
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Agregar Parada'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (paradasNombres.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              color: Colors.grey[600], size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'No hay paradas intermedias. Haz clic en "Agregar Parada" para añadir paradas entre el inicio y el final.',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[700]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ...List.generate(paradasNombres.length, (index) {
-                      return Padding(
-                        key: ValueKey('parada_$index'),
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                key: ValueKey('textfield_parada_$index'),
-                                controller: TextEditingController(
-                                    text: paradasNombres[index])
-                                  ..selection = TextSelection.fromPosition(
-                                    TextPosition(
-                                        offset: paradasNombres[index].length),
-                                  ),
-                                decoration: InputDecoration(
-                                  labelText: 'Parada ${index + 1}',
-                                  hintText: 'Ej: Plaza de Armas',
-                                  prefixIcon: const Icon(Icons.location_on),
-                                  border: const OutlineInputBorder(),
-                                ),
-                                onChanged: (value) {
-                                  paradasNombres[index] = value;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                setDialogState(() {
-                                  paradasNombres.removeAt(index);
-                                });
-                              },
-                              tooltip: 'Eliminar parada',
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  const SizedBox(height: 24),
-
-                  // Opción para crear ruta inversa (solo para nuevas rutas)
-                  if (ruta == null) ...[
-                    const Divider(),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue[200]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: createReverseRoute,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                createReverseRoute = value ?? false;
-                              });
-                            },
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.swap_horiz,
-                                        color: Colors.blue[700], size: 20),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'Crear ruta inversa automáticamente',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Se creará una ruta de vuelta con las paradas en orden inverso.\n'
-                                  'Ej: Si creas "Linares-Talca-Rancagua", también se creará "Rancagua-Talca-Linares"',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isEmpty ||
-                    scheduleController.text.isEmpty ||
-                    inicioController.text.isEmpty ||
-                    finalController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Por favor completa todos los campos obligatorios'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                // Construir lista completa de paradas: inicio + paradas intermedias + final
-                List<Parada> allStops = [];
-
-                // Agregar inicio
-                allStops.add(Parada(
-                  name: inicioController.text.trim(),
-                  latitude:
-                      0.0, // Se puede actualizar después con coordenadas reales
-                  longitude: 0.0,
-                  order: 0,
-                ));
-
-                // Agregar paradas intermedias (solo las que tienen nombre)
-                int orderIndex = 1;
-                for (var nombre in paradasNombres) {
-                  if (nombre.trim().isNotEmpty) {
-                    allStops.add(Parada(
-                      name: nombre.trim(),
-                      latitude:
-                          0.0, // Se puede actualizar después con coordenadas reales
-                      longitude: 0.0,
-                      order: orderIndex++,
-                    ));
-                  }
-                }
-
-                // Agregar final
-                allStops.add(Parada(
-                  name: finalController.text.trim(),
-                  latitude:
-                      0.0, // Se puede actualizar después con coordenadas reales
-                  longitude: 0.0,
-                  order: allStops.length,
-                ));
-
-                // Generar routeId si no existe (para nuevas rutas)
-                String routeId;
-                if (ruta != null) {
-                  routeId = ruta.routeId;
-                } else {
-                  // Generar ID único basado en el nombre
-                  final timestamp = DateTime.now().millisecondsSinceEpoch;
-                  final namePart = nameController.text
-                      .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
-                      .substring(
-                          0,
-                          nameController.text.length > 5
-                              ? 5
-                              : nameController.text.length)
-                      .toUpperCase();
-                  routeId = 'R${namePart}_$timestamp';
-                }
-
-                final newRuta = Ruta(
-                  routeId: routeId,
-                  name: nameController.text.trim(),
-                  schedule: scheduleController.text.trim(),
-                  stops: allStops,
-                  polyline: ruta?.polyline ?? '',
-                  active: ruta?.active ?? true,
-                );
-
-                Navigator.pop(context);
-                _createRouteWithReverse(
-                    newRuta, ruta != null, createReverseRoute);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(ruta == null ? 'Crear Ruta' : 'Actualizar Ruta'),
-            ),
-          ],
-        ),
+      builder: (context) => RouteDialog(
+        ruta: ruta,
+        onCreateRoute: (newRuta) {
+          _createRoute(newRuta, ruta != null);
+        },
       ),
     );
   }
 
-  Future<void> _createRouteWithReverse(
-      Ruta ruta, bool isUpdate, bool createReverse) async {
+  Future<void> _createRoute(Ruta ruta, bool isUpdate) async {
     final adminProvider = Provider.of<AdminProvider>(context, listen: false);
     bool success;
 
     if (isUpdate) {
-      // Si es actualización, no crear ruta inversa
       success = await adminProvider.updateRuta(ruta.routeId, ruta);
 
       if (success && mounted) {
@@ -827,26 +496,13 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
       return;
     }
 
-    // Crear la ruta principal
+    // Crear la ruta
     print('🔄 Creando ruta: ${ruta.routeId} - ${ruta.name}');
     success = await adminProvider.createRuta(ruta);
     print('✅ Resultado creación: $success');
 
-    bool reverseSuccess = false;
-    Ruta? reverseRuta;
-
-    // Si se solicitó crear la ruta inversa y la ruta principal se creó exitosamente
-    if (createReverse && success && ruta.stops.length >= 2) {
-      // Crear ruta inversa
-      reverseRuta = _createReverseRoute(ruta);
-      print(
-          '🔄 Creando ruta inversa: ${reverseRuta.routeId} - ${reverseRuta.name}');
-      reverseSuccess = await adminProvider.createRuta(reverseRuta);
-      print('✅ Resultado creación ruta inversa: $reverseSuccess');
-    }
-
     if (success && mounted) {
-      // Recargar rutas para asegurar que se muestren ambas (principal e inversa)
+      // Recargar rutas
       await adminProvider.loadRutas();
 
       // Esperar un momento para que el provider se actualice
@@ -855,24 +511,12 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
       // Forzar actualización del estado
       if (mounted) {
         setState(() {});
-        String message;
-        if (createReverse && reverseSuccess) {
-          message =
-              'Ruta "${ruta.name}" y ruta inversa "${reverseRuta!.name}" creadas exitosamente. Total: ${adminProvider.rutas.length}';
-        } else if (createReverse && !reverseSuccess) {
-          message =
-              'Ruta "${ruta.name}" creada, pero hubo un error al crear la ruta inversa. Total: ${adminProvider.rutas.length}';
-        } else {
-          message =
-              'Ruta creada exitosamente. Total: ${adminProvider.rutas.length}';
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
-            backgroundColor: (createReverse && !reverseSuccess)
-                ? Colors.orange
-                : Colors.green,
+            content: Text(
+              'Ruta "${ruta.name}" creada exitosamente. Total: ${adminProvider.rutas.length}',
+            ),
+            backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -890,78 +534,6 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     }
   }
 
-  /// Crea una ruta inversa basada en la ruta original
-  Ruta _createReverseRoute(Ruta originalRoute) {
-    // Invertir el orden de las paradas
-    List<Parada> reversedStops = [];
-    for (int i = originalRoute.stops.length - 1; i >= 0; i--) {
-      final originalStop = originalRoute.stops[i];
-      reversedStops.add(Parada(
-        name: originalStop.name,
-        latitude: originalStop.latitude,
-        longitude: originalStop.longitude,
-        order: originalRoute.stops.length - 1 - i,
-      ));
-    }
-
-    // Crear nombre para la ruta inversa
-    String reverseName;
-    final routeName = originalRoute.name.trim();
-
-    // Intentar detectar formato "A - B - C" o "A-B-C" o "A -> B -> C"
-    // Buscar el separador principal (el más común)
-    String? separator;
-    if (routeName.contains(' - ')) {
-      separator = ' - ';
-    } else if (routeName.contains(' -> ')) {
-      separator = ' -> ';
-    } else if (routeName.contains('-')) {
-      separator = '-';
-    } else if (routeName.contains('->')) {
-      separator = '->';
-    }
-
-    if (separator != null) {
-      // Dividir por el separador encontrado
-      List<String> parts = routeName.split(RegExp(separator == ' - '
-          ? r'\s*-\s*'
-          : (separator == ' -> ' ? r'\s*->\s*' : separator)));
-
-      // Limpiar partes y filtrar vacías
-      parts = parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
-
-      if (parts.length >= 2) {
-        // Invertir el orden y unir con el mismo separador
-        reverseName = parts.reversed.join(separator);
-      } else {
-        // Si no se puede invertir automáticamente, agregar "(Vuelta)"
-        reverseName = '$routeName (Vuelta)';
-      }
-    } else {
-      // Si no tiene formato reconocible, agregar "(Vuelta)"
-      reverseName = '$routeName (Vuelta)';
-    }
-
-    // Generar routeId único para la ruta inversa
-    // Usar un timestamp ligeramente mayor para asegurar unicidad
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final namePart = reverseName
-        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
-        .substring(0, reverseName.length > 5 ? 5 : reverseName.length)
-        .toUpperCase();
-    // Usar timestamp + 10 para asegurar que sea diferente del routeId original
-    final reverseRouteId = 'R${namePart}_${timestamp + 10}';
-
-    return Ruta(
-      routeId: reverseRouteId,
-      name: reverseName,
-      schedule: originalRoute.schedule,
-      stops: reversedStops,
-      polyline: '', // La polyline se puede generar después
-      active: originalRoute.active ?? true,
-      companyId: originalRoute.companyId,
-    );
-  }
 
   void _showAssignmentDialog(
       BuildContext context, Ruta ruta, AdminProvider adminProvider) {

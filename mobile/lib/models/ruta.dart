@@ -14,15 +14,29 @@ class Ruta {
   });
 
   factory Ruta.fromJson(Map<String, dynamic> json) {
+    print('📦 [RUTA_MODEL] Parseando ruta desde JSON');
+    print('   route_id: ${json['route_id']}');
+    print('   name: ${json['name']}');
+    print('   polyline: ${json['polyline'] != null ? (json['polyline'] is String ? "String (${(json['polyline'] as String).length} chars)" : "No es String: ${json['polyline'].runtimeType}") : "null"}');
+    print('   stops: ${json['stops'] != null ? (json['stops'] is List ? "List (${(json['stops'] as List).length} items)" : "No es List: ${json['stops'].runtimeType}") : "null"}');
+    
+    final stopsList = (json['stops'] as List<dynamic>?)
+            ?.map((parada) => Parada.fromJson(parada))
+            .toList() ??
+        [];
+    
+    final polylineValue = json['polyline'] ?? '';
+    final polylineStr = polylineValue is String ? polylineValue : '';
+    
+    print('   stops parseadas: ${stopsList.length}');
+    print('   polyline final: ${polylineStr.isNotEmpty ? "Sí (${polylineStr.length} chars)" : "No"}');
+    
     return Ruta(
       routeId: json['route_id']?.toString() ?? '',
       name: json['name'] ?? '',
       schedule: json['schedule'] ?? '',
-      stops: (json['stops'] as List<dynamic>?)
-              ?.map((parada) => Parada.fromJson(parada))
-              .toList() ??
-          [],
-      polyline: json['polyline'] ?? '',
+      stops: stopsList,
+      polyline: polylineStr,
     );
   }
 

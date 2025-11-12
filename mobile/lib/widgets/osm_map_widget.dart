@@ -29,11 +29,35 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentLocation();
+    // Retrasar la carga de ubicación para evitar setState durante build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCurrentLocation();
+    });
   }
 
   Future<void> _loadCurrentLocation() async {
+    if (!mounted) return;
+    
     final appProvider = Provider.of<AppProvider>(context, listen: false);
+    
+    // Si ya hay una ubicación, usarla directamente sin llamar a getCurrentLocation
+    if (appProvider.currentPosition != null) {
+      if (mounted) {
+        setState(() {
+          _currentLocation = LatLng(
+            appProvider.currentPosition!.latitude,
+            appProvider.currentPosition!.longitude,
+          );
+        });
+        _mapController.move(
+          _currentLocation!,
+          OpenStreetMapConfig.defaultZoom,
+        );
+      }
+      return;
+    }
+    
+    // Solo llamar a getCurrentLocation si no hay ubicación previa
     await appProvider.getCurrentLocation();
     if (appProvider.currentPosition != null && mounted) {
       setState(() {
@@ -176,6 +200,9 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
   void _showBusDetails(BusLocation busLocation) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(

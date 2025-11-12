@@ -389,18 +389,17 @@ class AdminProvider extends ChangeNotifier {
 
   Future<bool> updateEmpresa(int id, Empresa empresa) async {
     try {
-      _setLoading(true);
+      // No establecer loading para evitar que la pantalla se vaya a blanco
+      // Solo actualizar el estado local
       final updatedEmpresa = await _apiService.updateEmpresa(id, empresa);
       final index = _empresas.indexWhere((e) => e.id == id);
       if (index != -1) {
         _empresas[index] = updatedEmpresa;
+        notifyListeners();
       }
-      _setLoading(false);
-      notifyListeners();
       return true;
     } catch (e) {
       _setError('Error al actualizar empresa: $e');
-      _setLoading(false);
       return false;
     }
   }

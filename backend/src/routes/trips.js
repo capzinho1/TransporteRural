@@ -423,13 +423,13 @@ router.get('/stats/punctuality', async (req, res) => {
     
     const stats = {
       total: trips.length,
-      onTime: trips.filter(t => t.delay_minutes <= 0).length,
+      onTime: trips.filter(t => t.delay_minutes <= 0 || !t.delay_minutes).length,
       delayed: trips.filter(t => t.delay_minutes > 0).length,
       avgDelay: trips.length > 0
         ? trips.reduce((sum, t) => sum + (t.delay_minutes || 0), 0) / trips.length
         : 0,
       punctualityRate: trips.length > 0
-        ? (trips.filter(t => t.delay_minutes <= 0).length / trips.length) * 100
+        ? (trips.filter(t => t.delay_minutes <= 0 || !t.delay_minutes).length / trips.length) * 100
         : 0
     };
     
@@ -441,6 +441,192 @@ router.get('/stats/punctuality', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error al obtener estadísticas de puntualidad',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/trips/stats/comprehensive - Estadísticas completas con filtros
+router.get('/stats/comprehensive', async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    const { period, company_id, route_id, start_date, end_date } = req.query;
+    
+    let query = supabase.from('trips').select('*');
+    
+    // Filtrar por empresa si es company_admin
+    if (user && user.role === 'company_admin' && user.company_id) {
+      query = query.eq('company_id', user.company_id);
+    } else if (company_id && user && user.role === 'super_admin') {
+      // Super admin puede filtrar por empresa específica
+      query = query.eq('company_id', company_id);
+    }
+    
+    // Filtrar por ruta
+    if (route_id) {
+      query = query.eq('route_id', route_id);
+    }
+    
+    // Filtrar por período de fechas
+    if (start_date) {
+      query = query.gte('scheduled_start', start_date);
+    }
+    if (end_date) {
+      query = query.lte('scheduled_start', end_date);
+    }
+    
+    // Si no hay fechas, aplicar filtro por período predefinido
+    if (!start_date && !end_date && period) {
+      const now = new Date();
+      let startDate = new Date();
+      
+      switch (period) {
+        case 'day':
+          startDate.setDate(now.getDate() - 1);
+          break;
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        default:
+          startDate.setMonth(now.getMonth() - 1); // Por defecto último mes
+      }
+      
+      query = query.gte('scheduled_start', startDate.toISOString());
+    }
+    
+    const { data: trips, error } = await query;
+    
+    if (error) throw error;
+    
+    // Calcular estadísticas
+    const completedTrips = trips.filter(t => t.status === 'completed');
+    const scheduledTrips = trips.filter(t => t.status === 'scheduled');
+    const inProgressTrips = trips.filter(t => t.status === 'in_progress');
+    const cancelledTrips = trips.filter(t => t.status === 'cancelled');
+    
+    // Puntualidad
+    const onTimeTrips = completedTrips.filter(t => !t.delay_minutes || t.delay_minutes <= 0);
+    const delayedTrips = completedTrips.filter(t => t.delay_minutes > 0);
+    const avgDelay = completedTrips.length > 0
+      ? completedTrips.reduce((sum, t) => sum + (t.delay_minutes || 0), 0) / completedTrips.length
+      : 0;
+    const punctualityRate = completedTrips.length > 0
+      ? (onTimeTrips.length / completedTrips.length) * 100
+      : 0;
+    
+    // Pasajeros
+    const totalPassengers = completedTrips.reduce((sum, t) => sum + (t.passenger_count || 0), 0);
+    const avgPassengersPerTrip = completedTrips.length > 0
+      ? totalPassengers / completedTrips.length
+      : 0;
+    
+    // Duración
+    const tripsWithDuration = completedTrips.filter(t => t.duration_minutes);
+    const avgDuration = tripsWithDuration.length > 0
+      ? tripsWithDuration.reduce((sum, t) => sum + (t.duration_minutes || 0), 0) / tripsWithDuration.length
+      : 0;
+    
+    // Estadísticas por ruta
+    const routeStats = {};
+    trips.forEach(trip => {
+      if (trip.route_id) {
+        if (!routeStats[trip.route_id]) {
+          routeStats[trip.route_id] = {
+            routeId: trip.route_id,
+            total: 0,
+            completed: 0,
+            scheduled: 0,
+            inProgress: 0,
+            cancelled: 0,
+            passengers: 0
+          };
+        }
+        routeStats[trip.route_id].total++;
+        if (trip.status === 'completed') routeStats[trip.route_id].completed++;
+        if (trip.status === 'scheduled') routeStats[trip.route_id].scheduled++;
+        if (trip.status === 'in_progress') routeStats[trip.route_id].inProgress++;
+        if (trip.status === 'cancelled') routeStats[trip.route_id].cancelled++;
+        routeStats[trip.route_id].passengers += trip.passenger_count || 0;
+      }
+    });
+    
+    // Estadísticas por día (últimos 30 días)
+    const dailyStats = {};
+    const last30Days = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const dateKey = date.toISOString().split('T')[0];
+      last30Days.push(dateKey);
+      dailyStats[dateKey] = {
+        date: dateKey,
+        completed: 0,
+        scheduled: 0,
+        inProgress: 0,
+        cancelled: 0,
+        passengers: 0
+      };
+    }
+    
+    trips.forEach(trip => {
+      const tripDate = new Date(trip.scheduled_start).toISOString().split('T')[0];
+      if (dailyStats[tripDate]) {
+        if (trip.status === 'completed') dailyStats[tripDate].completed++;
+        if (trip.status === 'scheduled') dailyStats[tripDate].scheduled++;
+        if (trip.status === 'in_progress') dailyStats[tripDate].inProgress++;
+        if (trip.status === 'cancelled') dailyStats[tripDate].cancelled++;
+        dailyStats[tripDate].passengers += trip.passenger_count || 0;
+      }
+    });
+    
+    const stats = {
+      summary: {
+        total: trips.length,
+        completed: completedTrips.length,
+        scheduled: scheduledTrips.length,
+        inProgress: inProgressTrips.length,
+        cancelled: cancelledTrips.length,
+        completionRate: trips.length > 0 ? (completedTrips.length / trips.length) * 100 : 0
+      },
+      punctuality: {
+        onTime: onTimeTrips.length,
+        delayed: delayedTrips.length,
+        avgDelay: Math.round(avgDelay * 100) / 100,
+        punctualityRate: Math.round(punctualityRate * 100) / 100
+      },
+      passengers: {
+        total: totalPassengers,
+        average: Math.round(avgPassengersPerTrip * 100) / 100
+      },
+      duration: {
+        average: Math.round(avgDuration)
+      },
+      byRoute: Object.values(routeStats),
+      byDay: last30Days.map(date => dailyStats[date] || {
+        date,
+        completed: 0,
+        scheduled: 0,
+        inProgress: 0,
+        cancelled: 0,
+        passengers: 0
+      })
+    };
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener estadísticas',
       message: error.message
     });
   }

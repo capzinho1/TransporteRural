@@ -239,6 +239,27 @@ class AdminApiService {
   }
 
   // === USUARIOS ===
+  /// Obtiene usuarios sin autenticación (útil para login/autocompletado)
+  Future<List<Usuario>> getUsuariosPublic() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/users'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> usuariosData = data['data'] ?? [];
+        return usuariosData.map((json) => Usuario.fromJson(json)).toList();
+      } else {
+        throw Exception('Error al obtener usuarios: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  /// Obtiene usuarios con autenticación (requiere estar logueado)
   Future<List<Usuario>> getUsuarios() async {
     try {
       final response = await http.get(
@@ -251,7 +272,7 @@ class AdminApiService {
         final List<dynamic> usuariosData = data['data'] ?? [];
         return usuariosData.map((json) => Usuario.fromJson(json)).toList();
       } else {
-        throw Exception('Error al obtener usuarios');
+        throw Exception('Error al obtener usuarios: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Error: $e');
@@ -734,6 +755,41 @@ class AdminApiService {
         return data['data'] ?? {};
       } else {
         throw Exception('Error al obtener estadísticas de puntualidad');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getComprehensiveStats({
+    String? period,
+    int? companyId,
+    String? routeId,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (period != null) queryParams['period'] = period;
+      if (companyId != null) queryParams['company_id'] = companyId.toString();
+      if (routeId != null) queryParams['route_id'] = routeId;
+      if (startDate != null) queryParams['start_date'] = startDate;
+      if (endDate != null) queryParams['end_date'] = endDate;
+
+      final uri = Uri.parse('$baseUrl/trips/stats/comprehensive').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      final response = await http.get(
+        uri,
+        headers: _getHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? {};
+      } else {
+        throw Exception('Error al obtener estadísticas');
       }
     } catch (e) {
       throw Exception('Error: $e');

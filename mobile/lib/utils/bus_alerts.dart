@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_localizations.dart';
 
 // Lista de alertas predefinidas para buses
 class BusAlerts {
@@ -84,6 +85,40 @@ class BusAlerts {
       return null;
     }
   }
+
+  static String getTranslatedLabel(String id, BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    if (localizations == null) {
+      final alert = getAlertById(id);
+      return alert?.label ?? id;
+    }
+
+    final translationKey = 'alert_$id';
+    final translated = localizations.translate(translationKey);
+    // Si la traducción no existe, usar el label original
+    if (translated == translationKey) {
+      final alert = getAlertById(id);
+      return alert?.label ?? id;
+    }
+    return translated;
+  }
+
+  static Map<String, String> getTranslationKeyMap() {
+    return {
+      'bus_sucio': 'alert_bus_dirty',
+      'bus_mal_estado': 'alert_bus_bad_condition',
+      'chofer_mal_humorado': 'alert_driver_bad_mood',
+      'no_acepta_tne': 'alert_no_tne',
+      'sobrecarga': 'alert_overloaded',
+      'no_respeta_paradas': 'alert_no_stops',
+      'exceso_velocidad': 'alert_speed_excess',
+      'mal_servicio': 'alert_bad_service',
+      'aire_acondicionado_roto': 'alert_ac_broken',
+      'asientos_rotos': 'alert_broken_seats',
+      'puertas_no_funcionan': 'alert_doors_not_working',
+      'mal_olor': 'alert_bad_smell',
+    };
+  }
 }
 
 class BusAlertOption {
@@ -99,4 +134,3 @@ class BusAlertOption {
     required this.color,
   });
 }
-

@@ -88,7 +88,9 @@ class AppProvider extends ChangeNotifier {
       _setLoading(false);
       return true;
     } catch (e) {
-      _setError('Error al iniciar sesión: $e');
+      // El mensaje de error ya viene del backend con el formato correcto
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _setError(errorMessage);
       _setLoading(false);
       return false;
     }
@@ -102,8 +104,33 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Verificar estado del usuario (para verificación periódica)
+  Future<bool> checkUserStatus() async {
+    if (_currentUser == null) return true;
+    
+    try {
+      final status = await _apiService.checkUserStatus(_currentUser!.id);
+      final isActive = status['active'] as bool? ?? true;
+      
+      if (!isActive) {
+        // Usuario desactivado, hacer logout
+        logout();
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      // Si hay error al verificar, no hacer logout (podría ser un error de red)
+      print('Error al verificar estado del usuario: $e');
+      return true;
+    }
+  }
+
   // === UBICACIÓN ===
   Future<void> getCurrentLocation() async {
+    // Evitar llamadas múltiples simultáneas
+    if (_isLoading) return;
+    
     try {
       _setLoading(true);
       _currentPosition = await _locationService.getCurrentPosition();
@@ -157,8 +184,18 @@ class AppProvider extends ChangeNotifier {
     try {
       _setLoading(true);
       _rutas = await _apiService.getRutas();
+      print('🗺️ [APP_PROVIDER] Rutas cargadas: ${_rutas.length}');
+      for (var ruta in _rutas) {
+        print('   - Ruta: ${ruta.routeId} - ${ruta.name}');
+        print('     Polyline: ${ruta.polyline.isNotEmpty ? "Sí (${ruta.polyline.length} chars)" : "No"}');
+        print('     Paradas: ${ruta.stops.length}');
+        if (ruta.stops.isNotEmpty) {
+          print('     Primera parada: ${ruta.stops.first.name} (${ruta.stops.first.latitude}, ${ruta.stops.first.longitude})');
+        }
+      }
       _setLoading(false);
     } catch (e) {
+      print('❌ [APP_PROVIDER] Error al cargar rutas: $e');
       _setError('Error al cargar rutas: $e');
       _setLoading(false);
     }

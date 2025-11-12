@@ -13,7 +13,6 @@ import 'companies_management_screen.dart';
 import 'admin_login_screen.dart';
 import 'user_reports_screen.dart';
 import 'trips_history_screen.dart';
-import 'ratings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -44,7 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Consumer<AdminProvider>(
       builder: (context, adminProvider, child) {
         final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
-        
+
         // Pantallas diferentes según el rol
         final List<Widget> screens = isSuperAdmin
             ? [
@@ -56,7 +55,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const NotificationsScreen(),
                 const UserReportsScreen(),
                 const TripsHistoryScreen(),
-                const RatingsScreen(),
               ]
             : [
                 // Company Admin: Gestión completa de su empresa
@@ -70,7 +68,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const UsersManagementScreen(),
                 const UserReportsScreen(),
                 const TripsHistoryScreen(),
-                const RatingsScreen(),
               ];
 
         return Scaffold(
@@ -116,7 +113,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.refresh, color: Colors.white),
+                            icon:
+                                const Icon(Icons.refresh, color: Colors.white),
                             onPressed: _loadData,
                             tooltip: 'Actualizar datos',
                           ),
@@ -148,7 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFixedSidebar(AdminProvider adminProvider) {
     final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
     int menuIndex = 0;
-    
+
     return Container(
       width: 280,
       decoration: BoxDecoration(
@@ -214,7 +212,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: isSuperAdmin ? Colors.orange : Colors.blue,
                     borderRadius: BorderRadius.circular(12),
@@ -265,7 +264,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const Divider(),
                   ListTile(
-                    leading: const Icon(Icons.business, color: Colors.deepPurple),
+                    leading:
+                        const Icon(Icons.business, color: Colors.deepPurple),
                     title: const Text('Gestión de Empresas'),
                     subtitle: const Text('Crear y administrar empresas'),
                     selected: _selectedIndex == menuIndex++,
@@ -301,7 +301,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const Divider(),
                   ListTile(
-                    leading: const Icon(Icons.report_problem, color: Colors.orange),
+                    leading:
+                        const Icon(Icons.report_problem, color: Colors.orange),
                     title: const Text('Reportes de Usuarios'),
                     subtitle: const Text('Comentarios y sugerencias'),
                     selected: _selectedIndex == menuIndex++,
@@ -321,18 +322,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () {
                       setState(() {
                         _selectedIndex = 6;
-                      });
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.star, color: Colors.amber),
-                    title: const Text('Calificaciones'),
-                    subtitle: const Text('Calificaciones de conductores'),
-                    selected: _selectedIndex == menuIndex++,
-                    selectedTileColor: Colors.deepPurple[50],
-                    onTap: () {
-                      setState(() {
-                        _selectedIndex = 7;
                       });
                     },
                   ),
@@ -437,7 +426,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const Divider(),
                   ListTile(
-                    leading: const Icon(Icons.report_problem, color: Colors.orange),
+                    leading:
+                        const Icon(Icons.report_problem, color: Colors.orange),
                     title: const Text('Reportes de Usuarios'),
                     subtitle: const Text('Comentarios y sugerencias'),
                     selected: _selectedIndex == menuIndex++,
@@ -457,18 +447,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () {
                       setState(() {
                         _selectedIndex = 9;
-                      });
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.star, color: Colors.amber),
-                    title: const Text('Calificaciones'),
-                    subtitle: const Text('Calificaciones de conductores'),
-                    selected: _selectedIndex == menuIndex++,
-                    selectedTileColor: Colors.deepPurple[50],
-                    onTap: () {
-                      setState(() {
-                        _selectedIndex = 10;
                       });
                     },
                   ),
@@ -519,12 +497,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Título según rol
                 Consumer<AdminProvider>(
                   builder: (context, adminProvider, child) {
-                    final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
+                    final isSuperAdmin =
+                        adminProvider.currentUser?.isSuperAdmin ?? false;
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isSuperAdmin ? 'Panel de Control - Sistema Completo' : 'Panel de Control - Mi Empresa',
+                          isSuperAdmin
+                              ? 'Panel de Control - Sistema Completo'
+                              : 'Panel de Control - Mi Empresa',
                           style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -532,9 +513,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          isSuperAdmin 
-                            ? 'Vista general de todas las empresas y usuarios del sistema'
-                            : 'Vista general de tu empresa: buses, rutas y personal',
+                          isSuperAdmin
+                              ? 'Vista general de todas las empresas y usuarios del sistema'
+                              : 'Vista general de tu empresa: buses, rutas y personal',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[600],
@@ -595,8 +576,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Accesos rápidos según rol
                 Consumer<AdminProvider>(
                   builder: (context, adminProvider, child) {
-                    final isSuperAdmin = adminProvider.currentUser?.isSuperAdmin ?? false;
-                    
+                    final isSuperAdmin =
+                        adminProvider.currentUser?.isSuperAdmin ?? false;
+
                     if (isSuperAdmin) {
                       // Accesos rápidos para Super Admin
                       return Column(
@@ -765,7 +747,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 6,
             offset: const Offset(0, 3),
@@ -816,9 +798,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         width: 200,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

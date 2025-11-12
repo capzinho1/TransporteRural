@@ -9,6 +9,7 @@ import '../models/user_report.dart';
 import '../utils/bus_alerts.dart';
 import '../utils/app_colors.dart';
 import '../config/openstreetmap_config.dart';
+import '../services/polyline_service.dart';
 // Usaremos las paradas directamente para dibujar rutas
 
 /// Widget de mapa mejorado con rutas, paradas y alertas
@@ -20,6 +21,8 @@ class EnhancedMapWidget extends StatefulWidget {
   final bool showAlerts;
   final String? initialBusId;
   final Function(BusLocation)? onBusTap;
+  final String? selectedRouteId; // Ruta seleccionada para mostrar su polilínea
+  final String? selectedBusId; // Bus seleccionado para mostrar su ruta
 
   const EnhancedMapWidget({
     super.key,
@@ -30,6 +33,8 @@ class EnhancedMapWidget extends StatefulWidget {
     this.showAlerts = true,
     this.initialBusId,
     this.onBusTap,
+    this.selectedRouteId,
+    this.selectedBusId,
   });
 
   @override
@@ -43,11 +48,49 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentLocation();
+    // Retrasar la carga de ubicación para evitar setState durante build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCurrentLocation();
+    });
   }
 
   Future<void> _loadCurrentLocation() async {
+    if (!mounted) return;
+    
     final appProvider = Provider.of<AppProvider>(context, listen: false);
+    
+    // Si ya hay una ubicación, usarla directamente sin llamar a getCurrentLocation
+    if (appProvider.currentPosition != null) {
+      if (mounted) {
+        setState(() {
+          _currentLocation = latlong2.LatLng(
+            appProvider.currentPosition!.latitude,
+            appProvider.currentPosition!.longitude,
+          );
+        });
+        
+        // Si hay un bus inicial, centrar en ese bus
+        if (widget.initialBusId != null && widget.buses.isNotEmpty) {
+          final initialBus = widget.buses.firstWhere(
+            (bus) => bus.busId == widget.initialBusId,
+            orElse: () => widget.buses.first,
+          );
+          _mapController.move(
+            latlong2.LatLng(initialBus.latitude, initialBus.longitude),
+            15.0,
+          );
+        } else if (_currentLocation != null) {
+          // Centrar en la ubicación actual
+          _mapController.move(
+            _currentLocation!,
+            OpenStreetMapConfig.defaultZoom,
+          );
+        }
+      }
+      return;
+    }
+    
+    // Solo llamar a getCurrentLocation si no hay ubicación previa
     await appProvider.getCurrentLocation();
     if (appProvider.currentPosition != null && mounted) {
       setState(() {
@@ -103,14 +146,16 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
           maxNativeZoom: OpenStreetMapConfig.maxNativeZoom,
         ),
 
-        // Capa de rutas (polylines)
-        if (widget.showStops && widget.routes.isNotEmpty)
+        // Capa de rutas (polylines) - solo mostrar si hay ruta o bus seleccionado
+        if (widget.showStops && 
+            (widget.selectedRouteId != null || widget.selectedBusId != null))
           PolylineLayer(
             polylines: _buildRoutePolylines(),
           ),
 
-        // Capa de paradas
-        if (widget.showStops && widget.routes.isNotEmpty)
+        // Capa de paradas - solo mostrar si hay ruta o bus seleccionado
+        if (widget.showStops && 
+            (widget.selectedRouteId != null || widget.selectedBusId != null))
           MarkerLayer(
             markers: _buildStopMarkers(),
           ),
@@ -174,11 +219,83 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
   }
 
   List<Polyline> _buildRoutePolylines() {
+    print('🗺️ [ENHANCED_MAP] Construyendo polilíneas...');
+    print('   Rutas recibidas: ${widget.routes.length}');
+    print('   selectedRouteId: ${widget.selectedRouteId}');
+    print('   selectedBusId: ${widget.selectedBusId}');
+    
     final polylines = <Polyline>[];
+    
+    // Determinar qué rutas mostrar
+    List<Ruta> routesToShow = [];
+    
+    if (widget.selectedRouteId != null || widget.selectedBusId != null) {
+      // Si hay una ruta o bus seleccionado, mostrar solo esa ruta
+      String? routeIdToShow = widget.selectedRouteId;
+      
+      // Si hay un bus seleccionado, obtener su ruta
+      if (routeIdToShow == null && widget.selectedBusId != null) {
+        final selectedBus = widget.buses.firstWhere(
+          (bus) => bus.busId == widget.selectedBusId,
+          orElse: () => BusLocation(
+            busId: '',
+            latitude: 0,
+            longitude: 0,
+            status: 'inactive',
+          ),
+        );
+        routeIdToShow = selectedBus.routeId;
+      }
+      
+      if (routeIdToShow != null) {
+        final route = widget.routes.firstWhere(
+          (r) => r.routeId == routeIdToShow,
+          orElse: () => Ruta(
+            routeId: '',
+            name: '',
+            schedule: '',
+            stops: [],
+            polyline: '',
+          ),
+        );
+        if (route.routeId.isNotEmpty) {
+          routesToShow = [route];
+        }
+      }
+    } else {
+      // Si no hay selección, mostrar todas las rutas
+      routesToShow = widget.routes;
+    }
 
-    for (final route in widget.routes) {
-      // Dibujar línea entre paradas (ordenadas)
-      if (route.stops.length > 1) {
+    print('   Rutas a mostrar: ${routesToShow.length}');
+
+    // Generar polilíneas para cada ruta
+    for (final route in routesToShow) {
+      if (route.routeId.isEmpty) {
+        print('   ⚠️ Saltando ruta con routeId vacío');
+        continue;
+      }
+
+      print('   🔍 Procesando ruta: ${route.routeId} - ${route.name}');
+      List<latlong2.LatLng> points = [];
+
+      // Priorizar polilínea codificada si existe
+      if (route.polyline.isNotEmpty) {
+        print('     Intentando decodificar polilínea...');
+        final decoded = PolylineService.decodePolyline(route.polyline);
+        if (decoded != null && decoded.isNotEmpty) {
+          points = decoded.map((p) => latlong2.LatLng(p.latitude, p.longitude)).toList();
+          print('     ✅ Polilínea decodificada: ${points.length} puntos');
+        } else {
+          print('     ❌ Falló la decodificación de polilínea');
+        }
+      } else {
+        print('     ⚠️ Ruta sin polilínea codificada');
+      }
+
+      // Si no hay polilínea codificada o falló, usar paradas
+      if (points.isEmpty && route.stops.length > 1) {
+        print('     Usando paradas como fallback (${route.stops.length} paradas)');
         // Ordenar paradas por orden si existe
         final sortedStops = List<Parada>.from(route.stops);
         sortedStops.sort((a, b) {
@@ -187,10 +304,16 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
           return orderA.compareTo(orderB);
         });
 
-        final points = sortedStops.map((stop) {
-          return latlong2.LatLng(stop.latitude, stop.longitude);
-        }).toList();
+        points = sortedStops
+            .where((stop) => stop.latitude != 0.0 && stop.longitude != 0.0)
+            .map((stop) => latlong2.LatLng(stop.latitude, stop.longitude))
+            .toList();
+        print('     Paradas válidas: ${points.length}');
+      } else if (points.isEmpty) {
+        print('     ⚠️ No hay suficientes paradas (${route.stops.length})');
+      }
 
+      if (points.length >= 2) {
         polylines.add(
           Polyline(
             points: points,
@@ -198,17 +321,69 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
             color: AppColors.primaryGreen,
           ),
         );
+        print('     ✅ Polilínea agregada al mapa');
+      } else {
+        print('     ❌ No se pudo crear polilínea (solo ${points.length} puntos)');
       }
     }
 
+    print('🗺️ [ENHANCED_MAP] Total polilíneas creadas: ${polylines.length}');
     return polylines;
   }
 
   List<Marker> _buildStopMarkers() {
     final markers = <Marker>[];
+    
+    // Determinar qué rutas mostrar
+    List<Ruta> routesToShow = [];
+    
+    if (widget.selectedRouteId != null || widget.selectedBusId != null) {
+      // Si hay una ruta o bus seleccionado, mostrar solo esa ruta
+      String? routeIdToShow = widget.selectedRouteId;
+      
+      // Si hay un bus seleccionado, obtener su ruta
+      if (routeIdToShow == null && widget.selectedBusId != null) {
+        final selectedBus = widget.buses.firstWhere(
+          (bus) => bus.busId == widget.selectedBusId,
+          orElse: () => BusLocation(
+            busId: '',
+            latitude: 0,
+            longitude: 0,
+            status: 'inactive',
+          ),
+        );
+        routeIdToShow = selectedBus.routeId;
+      }
+      
+      if (routeIdToShow != null) {
+        final route = widget.routes.firstWhere(
+          (r) => r.routeId == routeIdToShow,
+          orElse: () => Ruta(
+            routeId: '',
+            name: '',
+            schedule: '',
+            stops: [],
+            polyline: '',
+          ),
+        );
+        if (route.routeId.isNotEmpty) {
+          routesToShow = [route];
+        }
+      }
+    } else {
+      // Si no hay selección, mostrar todas las rutas
+      routesToShow = widget.routes;
+    }
 
-    for (final route in widget.routes) {
+    // Generar marcadores para cada ruta
+    for (final route in routesToShow) {
+      if (route.routeId.isEmpty) continue;
+
       for (final stop in route.stops) {
+        if (stop.latitude == 0.0 && stop.longitude == 0.0) {
+          continue; // Saltar paradas sin coordenadas
+        }
+        
         markers.add(
           Marker(
             point: latlong2.LatLng(stop.latitude, stop.longitude),
@@ -353,6 +528,9 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         minChildSize: 0.4,

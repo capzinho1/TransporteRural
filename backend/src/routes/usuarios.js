@@ -49,6 +49,42 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/usuarios/:id/status - Verificar estado del usuario (para verificación periódica)
+// IMPORTANTE: Esta ruta debe estar ANTES de /:id para que Express la capture correctamente
+router.get('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: usuario, error } = await supabase
+      .from('users')
+      .select('id, active, role')
+      .eq('id', id)
+      .single();
+    
+    if (error || !usuario) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        id: usuario.id,
+        active: usuario.active !== false, // null o undefined se considera activo
+        role: usuario.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Error al verificar estado del usuario',
+      message: error.message
+    });
+  }
+});
+
 // GET /api/usuarios/:id - Obtener usuario por ID
 router.get('/:id', async (req, res) => {
   try {
@@ -205,6 +241,19 @@ router.post('/login', async (req, res) => {
         success: false,
         error: 'Credenciales inválidas',
         message: 'Email o contraseña incorrectos'
+      });
+    }
+    
+    // Verificar si el usuario está activo (especialmente importante para conductores)
+    const isActive = usuario.active !== false; // null o undefined se considera activo por defecto
+    if (!isActive) {
+      console.error(`Login rechazado: Usuario ${email} tiene cuenta desactivada`);
+      return res.status(403).json({
+        success: false,
+        error: 'Cuenta desactivada',
+        message: usuario.role === 'driver' 
+          ? 'Su cuenta de conductor ha sido desactivada. Por favor, contacte al administrador de su empresa.'
+          : 'Su cuenta ha sido desactivada. Por favor, contacte al administrador.'
       });
     }
     
