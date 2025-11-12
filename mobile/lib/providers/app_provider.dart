@@ -81,6 +81,12 @@ class AppProvider extends ChangeNotifier {
       if (response['usuario'] != null) {
         print('🔍 Usuario data: ${response['usuario']}'); // Debug
         _currentUser = Usuario.fromJson(response['usuario']);
+        
+        // Establecer el user ID en el ApiService para autenticación en peticiones futuras
+        _apiService.setCurrentUserId(_currentUser!.id);
+        
+        // Cargar configuraciones del usuario después del login
+        // Esto se hará desde el widget que maneja el login
       } else {
         throw Exception('Usuario no encontrado en la respuesta');
       }
@@ -101,8 +107,24 @@ class AppProvider extends ChangeNotifier {
     _currentPosition = null;
     _busLocations.clear();
     _rutas.clear();
+    // Limpiar el user ID del ApiService
+    _apiService.setCurrentUserId(null);
+    // Las configuraciones se limpiarán desde el widget que maneja el logout
     notifyListeners();
   }
+
+  /// Establecer usuario actual (para autenticación con Supabase)
+  void setCurrentUser(Usuario usuario) {
+    _currentUser = usuario;
+    // Establecer el user ID en el ApiService para autenticación en peticiones futuras
+    _apiService.setCurrentUserId(usuario.id);
+    print('✅ [APP_PROVIDER] Usuario establecido: ID=${usuario.id}, Email=${usuario.email}, Role=${usuario.role}');
+    print('✅ [APP_PROVIDER] User ID configurado en ApiService: ${usuario.id}');
+    notifyListeners();
+  }
+  
+  /// Obtener ID del usuario actual (para SettingsProvider)
+  int? get currentUserId => _currentUser?.id;
 
   // Verificar estado del usuario (para verificación periódica)
   Future<bool> checkUserStatus() async {
@@ -183,6 +205,9 @@ class AppProvider extends ChangeNotifier {
   Future<void> loadRutas() async {
     try {
       _setLoading(true);
+      _setError(null); // Limpiar errores anteriores
+      print('🗺️ [APP_PROVIDER] Iniciando carga de rutas...');
+      print('🗺️ [APP_PROVIDER] Usuario actual: ${_currentUser?.id} (${_currentUser?.email})');
       _rutas = await _apiService.getRutas();
       print('🗺️ [APP_PROVIDER] Rutas cargadas: ${_rutas.length}');
       for (var ruta in _rutas) {
@@ -196,7 +221,14 @@ class AppProvider extends ChangeNotifier {
       _setLoading(false);
     } catch (e) {
       print('❌ [APP_PROVIDER] Error al cargar rutas: $e');
-      _setError('Error al cargar rutas: $e');
+      // Extraer el mensaje de error sin el prefijo "Exception: "
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      // Si el error menciona "Credenciales inválidas" pero no es del login, aclarar
+      if (errorMessage.contains('Credenciales inválidas') && !errorMessage.contains('login')) {
+        _setError('Error de autenticación. Por favor, cierra sesión e inicia sesión nuevamente.');
+      } else {
+        _setError('Error al cargar rutas: $errorMessage');
+      }
       _setLoading(false);
     }
   }

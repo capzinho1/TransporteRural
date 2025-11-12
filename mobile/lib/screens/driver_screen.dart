@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../providers/app_provider.dart';
+import '../providers/settings_provider.dart';
+import '../services/auth_service.dart';
 import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../widgets/osm_map_widget.dart';
@@ -1054,12 +1056,27 @@ class _DriverScreenState extends State<DriverScreen> {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
               final appProvider =
                   Provider.of<AppProvider>(context, listen: false);
+              // Limpiar configuraciones del usuario
+              final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+              settingsProvider.clearUserSettings();
+              
+              // Cerrar sesión de Supabase si existe
+              try {
+                await AuthService.signOut();
+                print('✅ [LOGOUT] Sesión de Supabase cerrada');
+              } catch (e) {
+                print('⚠️ [LOGOUT] Error al cerrar sesión de Supabase: $e');
+              }
+              
+              // Hacer logout en la app
               appProvider.logout();
-              Navigator.of(context).pushReplacementNamed('/login');
+              
+              // Navegar al login usando pushNamedAndRemoveUntil para limpiar el stack
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
             },
             child: const Text('Cerrar Sesión',
                 style: TextStyle(color: Colors.red)),

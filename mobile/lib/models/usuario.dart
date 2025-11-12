@@ -7,6 +7,9 @@ class Usuario {
   final int? companyId;
   final bool? active;
   final String? driverStatus; // Estados: 'disponible', 'en_ruta', 'fuera_de_servicio', 'en_descanso'
+  final String? region; // Región de Chile
+  final String? authProvider; // 'local' o 'supabase'
+  final String? supabaseAuthId; // UUID de Supabase Auth
 
   Usuario({
     required this.id,
@@ -17,6 +20,9 @@ class Usuario {
     this.companyId,
     this.active,
     this.driverStatus,
+    this.region,
+    this.authProvider,
+    this.supabaseAuthId,
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
@@ -29,6 +35,9 @@ class Usuario {
       companyId: json['company_id'],
       active: json['active'] ?? true,
       driverStatus: json['driver_status'],
+      region: json['region'],
+      authProvider: json['auth_provider'],
+      supabaseAuthId: json['supabase_auth_id'],
     );
   }
 
@@ -42,6 +51,9 @@ class Usuario {
       'company_id': companyId,
       'active': active,
       'driver_status': driverStatus,
+      'region': region,
+      'auth_provider': authProvider,
+      'supabase_auth_id': supabaseAuthId,
     };
   }
 
@@ -54,6 +66,9 @@ class Usuario {
     int? companyId,
     bool? active,
     String? driverStatus,
+    String? region,
+    String? authProvider,
+    String? supabaseAuthId,
   }) {
     return Usuario(
       id: id ?? this.id,
@@ -64,6 +79,9 @@ class Usuario {
       companyId: companyId ?? this.companyId,
       active: active ?? this.active,
       driverStatus: driverStatus ?? this.driverStatus,
+      region: region ?? this.region,
+      authProvider: authProvider ?? this.authProvider,
+      supabaseAuthId: supabaseAuthId ?? this.supabaseAuthId,
     );
   }
   

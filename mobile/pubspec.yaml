@@ -41,6 +41,9 @@ dependencies:
   uuid: ^4.2.1
   connectivity_plus: ^5.0.2
   
+  # Autenticación
+  supabase_flutter: ^2.5.6
+  
   # Localización e internacionalización
   flutter_localizations:
     sdk: flutter

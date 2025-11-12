@@ -10,12 +10,32 @@ import '../models/user_report.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:3000/api';
+  
+  // ID del usuario actual para autenticación
+  int? _currentUserId;
 
-  // Headers por defecto
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+  // Establecer el ID del usuario actual
+  void setCurrentUserId(int? userId) {
+    _currentUserId = userId;
+    print('🔑 [API_SERVICE] User ID establecido: $userId');
+  }
+
+  // Headers por defecto (incluye user ID si está disponible)
+  Map<String, String> get _headers {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    
+    // Agregar user ID si está disponible
+    // NOTA: Algunos endpoints no requieren user ID (como /routes)
+    // pero lo enviamos si está disponible para filtrado por empresa
+    if (_currentUserId != null) {
+      headers['x-user-id'] = _currentUserId.toString();
+    }
+    
+    return headers;
+  }
 
   // Método genérico para hacer peticiones HTTP
   Future<Map<String, dynamic>> _makeRequest(
@@ -27,6 +47,12 @@ class ApiService {
     try {
       final url = Uri.parse('$baseUrl$endpoint');
       final requestHeaders = {..._headers, ...?headers};
+      
+      // Log para debugging
+      print('📡 [API_SERVICE] ${method.toUpperCase()} $endpoint');
+      if (requestHeaders.containsKey('x-user-id')) {
+        print('   🔑 User ID: ${requestHeaders['x-user-id']}');
+      }
 
       http.Response response;
 
@@ -55,6 +81,8 @@ class ApiService {
           throw Exception('Método HTTP no soportado: $method');
       }
 
+      print('📡 [API_SERVICE] Respuesta: ${response.statusCode} para $endpoint');
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body);
       } else {
@@ -62,13 +90,38 @@ class ApiService {
         try {
           final errorBody = jsonDecode(response.body);
           final errorMessage = errorBody['message'] ?? errorBody['error'] ?? 'Error desconocido';
+          
+          // Log del error específico
+          print('❌ [API_SERVICE] Error en $endpoint: $errorMessage (${response.statusCode})');
+          
+          // Para 404, lanzar excepción que se pueda capturar
+          if (response.statusCode == 404) {
+            throw Exception('Usuario no encontrado');
+          }
+          
+          // Si el error es del endpoint de login, usar un mensaje más específico
+          if (endpoint == '/users/login') {
+            throw Exception(errorMessage);
+          }
+          
+          // Para otros endpoints, usar el mensaje del backend
           throw Exception(errorMessage);
         } catch (e) {
+          // Si ya es una Exception, re-lanzarla
+          if (e is Exception) {
+            rethrow;
+          }
           // Si no se puede parsear, usar el mensaje genérico
+          print('❌ [API_SERVICE] Error no parseable en $endpoint: ${response.body}');
           throw Exception('Error HTTP ${response.statusCode}: ${response.body}');
         }
       }
     } catch (e) {
+      // Si el error ya tiene un mensaje específico, no agregar "Error en petición API"
+      if (e.toString().contains('Exception: ')) {
+        rethrow;
+      }
+      print('❌ [API_SERVICE] Error en petición $endpoint: $e');
       throw Exception('Error en petición API: $e');
     }
   }
@@ -76,15 +129,22 @@ class ApiService {
   // === RUTAS ===
   Future<List<Ruta>> getRutas() async {
     print('📡 [API_SERVICE] Obteniendo rutas...');
-    final response = await _makeRequest('GET', '/routes');
-    final List<dynamic> rutasData = response['data'] ?? [];
-    print('📡 [API_SERVICE] Respuesta recibida: ${rutasData.length} rutas');
-    if (rutasData.isNotEmpty) {
-      print('📡 [API_SERVICE] Primera ruta raw: ${rutasData[0]}');
+    print('📡 [API_SERVICE] User ID actual: $_currentUserId');
+    try {
+      final response = await _makeRequest('GET', '/routes');
+      final List<dynamic> rutasData = response['data'] ?? [];
+      print('📡 [API_SERVICE] Respuesta recibida: ${rutasData.length} rutas');
+      if (rutasData.isNotEmpty) {
+        print('📡 [API_SERVICE] Primera ruta raw: ${rutasData[0]}');
+      }
+      final rutas = rutasData.map((json) => Ruta.fromJson(json)).toList();
+      print('📡 [API_SERVICE] Rutas parseadas: ${rutas.length}');
+      return rutas;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al obtener rutas: $e');
+      print('❌ [API_SERVICE] User ID en el momento del error: $_currentUserId');
+      rethrow;
     }
-    final rutas = rutasData.map((json) => Ruta.fromJson(json)).toList();
-    print('📡 [API_SERVICE] Rutas parseadas: ${rutas.length}');
-    return rutas;
   }
 
   Future<Ruta> getRuta(int id) async {
@@ -178,6 +238,58 @@ class ApiService {
 
   Future<void> deleteUsuario(int id) async {
     await _makeRequest('DELETE', '/users/$id');
+  }
+
+  // === AUTENTICACIÓN SUPABASE ===
+  /// Sincronizar usuario de Supabase Auth con la tabla users
+  Future<Map<String, dynamic>> syncSupabaseUser({
+    required String supabaseAuthId,
+    required String email,
+    required String name,
+    required String region,
+  }) async {
+    print('📡 [API_SERVICE] Sincronizando usuario de Supabase Auth...');
+    print('   - supabase_auth_id: $supabaseAuthId');
+    print('   - email: $email');
+    print('   - name: $name');
+    print('   - region: $region');
+    
+    try {
+      final response = await _makeRequest(
+        'POST',
+        '/users/sync-supabase',
+        body: {
+          'supabase_auth_id': supabaseAuthId,
+          'email': email,
+          'name': name,
+          'region': region,
+        },
+      );
+      
+      print('✅ [API_SERVICE] Usuario sincronizado exitosamente');
+      return response;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al sincronizar usuario: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtener usuario por Supabase Auth ID
+  Future<Map<String, dynamic>> getUserBySupabaseId({
+    required String supabaseAuthId,
+  }) async {
+    print('📡 [API_SERVICE] Obteniendo usuario por Supabase Auth ID: $supabaseAuthId');
+    try {
+      final response = await _makeRequest(
+        'GET',
+        '/users/supabase/$supabaseAuthId',
+      );
+      print('✅ [API_SERVICE] Usuario obtenido exitosamente');
+      return response;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al obtener usuario por Supabase Auth ID: $e');
+      rethrow;
+    }
   }
 
   // === NOTIFICACIONES ===

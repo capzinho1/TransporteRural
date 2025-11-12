@@ -14,9 +14,27 @@ class BusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      margin: EdgeInsets.zero,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Colors.green[50]!,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -26,23 +44,24 @@ class BusCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     gradient: AppColors.getStatusGradient(busLocation.status),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.getBusStatusColor(busLocation.status)
-                            .withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                            .withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 1,
                       ),
                     ],
                   ),
                   child: const Icon(
-                    Icons.directions_bus,
+                    Icons.directions_bus_rounded,
                     color: Colors.white,
-                    size: 24,
+                    size: 28,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -87,24 +106,32 @@ class BusCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppColors.getBusStatusColor(busLocation.status)
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color:
-                                AppColors.getBusStatusColor(busLocation.status),
-                            width: 1,
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.getBusStatusColor(busLocation.status),
+                              AppColors.getBusStatusColor(busLocation.status)
+                                  .withValues(alpha: 0.8),
+                            ],
                           ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.getBusStatusColor(busLocation.status)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
-                          busLocation.status,
-                          style: TextStyle(
-                            color:
-                                AppColors.getBusStatusColor(busLocation.status),
-                            fontWeight: FontWeight.w600,
+                          busLocation.status.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                             fontSize: 11,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
@@ -118,10 +145,14 @@ class BusCard extends StatelessWidget {
 
             // Información del bus
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.backgroundLight,
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey[200]!,
+                  width: 1,
+                ),
               ),
               child: Column(
                 children: [
@@ -312,33 +343,72 @@ class BusCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      _showBusDetails(context);
-                    },
-                    icon: const Icon(Icons.info_outline, size: 16),
-                    label: const Text('Detalles'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primaryGreen,
-                      side: const BorderSide(
-                          color: AppColors.primaryGreen, width: 1.5),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF2E7D32),
+                        width: 2,
+                      ),
+                    ),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _showBusDetails(context);
+                      },
+                      icon: const Icon(Icons.info_outline_rounded, size: 18),
+                      label: const Text(
+                        'Detalles',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF2E7D32),
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      _showOnMap(context);
-                    },
-                    icon: const Icon(Icons.map, size: 16),
-                    label: const Text('Ver Mapa'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      elevation: 2,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _showOnMap(context);
+                      },
+                      icon: const Icon(Icons.map_rounded, size: 18),
+                      label: const Text(
+                        'Ver Mapa',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),

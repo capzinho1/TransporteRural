@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'login_screen.dart';
+import 'home_screen.dart';
+import 'driver_screen.dart';
 import '../widgets/georu_logo.dart';
+import '../services/auth_service.dart';
+import '../providers/app_provider.dart';
+import '../providers/settings_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -44,8 +50,68 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (mounted) {
-      // Por ahora, siempre ir al login
-      // En una implementación real, verificarías tokens guardados
+      // Verificar si hay una sesión activa de Supabase Auth
+      // (por ejemplo, después de un redirect de OAuth)
+      // IMPORTANTE: Solo procesar sesiones si hay un usuario válido y la sesión no está expirada
+      try {
+        if (AuthService.hasSession) {
+          final currentUser = AuthService.currentSupabaseUser;
+          final currentSession = AuthService.currentSupabaseSession;
+          
+          // Verificar que la sesión sea válida y no esté expirada
+          if (currentUser != null && currentSession != null) {
+            // Verificar si la sesión está expirada
+            final expiresAt = currentSession.expiresAt;
+            bool sessionValid = true;
+            
+            if (expiresAt != null) {
+              final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+              if (expiresAt < now) {
+                print('⚠️ [SPLASH] Sesión expirada, cerrando...');
+                await AuthService.signOut();
+                sessionValid = false;
+              }
+            }
+            
+            // Si la sesión es válida, procesarla
+            if (sessionValid) {
+              try {
+                print('🔄 [SPLASH] Sesión activa válida detectada, procesando usuario...');
+                final usuario = await AuthService.processExistingSession();
+                
+                // Usuario procesado exitosamente, redirigir
+                final appProvider = Provider.of<AppProvider>(context, listen: false);
+                appProvider.setCurrentUser(usuario);
+                
+                // Cargar configuraciones del usuario
+                final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+                await settingsProvider.loadUserSettings(usuario.id);
+                
+                if (mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => usuario.role == 'driver' 
+                        ? const DriverScreen() 
+                        : const HomeScreen(),
+                    ),
+                  );
+                  return;
+                }
+              } catch (e) {
+                // Error al procesar usuario, continuar al login
+                print('⚠️ [SPLASH] Error al procesar usuario después de OAuth: $e');
+                // Limpiar sesión si hay error
+                await AuthService.signOut();
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Error al verificar sesión, continuar al login
+        print('⚠️ [SPLASH] Error al verificar sesión: $e');
+      }
+      
+      // No hay sesión activa, ir al login
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../providers/settings_provider.dart';
+import '../services/auth_service.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/bus_card.dart';
 import '../widgets/ruta_card.dart';
@@ -92,18 +94,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       drawer: _buildDrawer(context),
       appBar: AppBar(
+        elevation: 0,
         title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             GeoRuLogo(
-              size: 28,
+              size: 32,
               showText: false,
               showSlogan: false,
             ),
-            SizedBox(width: 8),
+            SizedBox(width: 10),
             Flexible(
               child: Text(
                 'GeoRu',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -111,10 +119,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadInitialData,
             tooltip: AppLocalizations.of(context)?.translate('refresh') ??
                 'Actualizar',
+            iconSize: 24,
           ),
           Builder(
             builder: (popupContext) {
@@ -188,18 +197,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
           tabs: [
             Tab(
-              icon: const Icon(Icons.directions_bus),
+              icon: const Icon(Icons.directions_bus_rounded, size: 22),
               text: AppLocalizations.of(context)?.translate('buses') ?? 'Buses',
             ),
             Tab(
-              icon: const Icon(Icons.route),
+              icon: const Icon(Icons.route_rounded, size: 22),
               text:
                   AppLocalizations.of(context)?.translate('routes') ?? 'Rutas',
             ),
             Tab(
-              icon: const Icon(Icons.map),
+              icon: const Icon(Icons.map_rounded, size: 22),
               text: AppLocalizations.of(context)?.translate('map') ?? 'Mapa',
             ),
           ],
@@ -262,62 +280,140 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (appProvider.error != null) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                const SizedBox(height: 16),
-                Text(
-                  appProvider.error!,
-                  style: const TextStyle(fontSize: 16),
-                  textAlign: TextAlign.center,
+                const CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadInitialData,
-                  child: const Text('Reintentar'),
+                const SizedBox(height: 24),
+                Text(
+                  AppLocalizations.of(context)?.translate('loading') ?? 'Cargando...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
+            ),
+          );
+        }
+
+        if (appProvider.error != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.error_outline_rounded,
+                      size: 64,
+                      color: Colors.red[400],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Oops!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[900],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    appProvider.error!,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    onPressed: _loadInitialData,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Reintentar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         if (appProvider.busLocations.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.directions_bus_outlined,
-                  size: 64,
-                  color: Colors.grey,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)
-                          ?.translate('no_buses_available') ??
-                      'No hay buses disponibles',
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.directions_bus_outlined,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'No hay buses disponibles',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Intenta actualizar más tarde',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         return RefreshIndicator(
           onRefresh: _loadInitialData,
+          color: const Color(0xFF2E7D32),
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: appProvider.busLocations.length,
             itemBuilder: (context, index) {
               final busLocation = appProvider.busLocations[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: BusCard(busLocation: busLocation),
               );
             },
@@ -331,60 +427,143 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (appProvider.error != null) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                const SizedBox(height: 16),
-                Text(
-                  appProvider.error!,
-                  style: const TextStyle(fontSize: 16),
-                  textAlign: TextAlign.center,
+                const CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadInitialData,
-                  child: Text(
-                      AppLocalizations.of(context)?.translate('retry') ??
-                          'Reintentar'),
+                const SizedBox(height: 24),
+                Text(
+                  AppLocalizations.of(context)?.translate('loading') ?? 'Cargando...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
+            ),
+          );
+        }
+
+        if (appProvider.error != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.error_outline_rounded,
+                      size: 64,
+                      color: Colors.red[400],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Oops!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[900],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    appProvider.error!,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    onPressed: _loadInitialData,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(
+                      AppLocalizations.of(context)?.translate('retry') ??
+                          'Reintentar',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         if (appProvider.rutas.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.route_outlined, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)
-                          ?.translate('no_routes_available') ??
-                      'No hay rutas disponibles',
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.route_outlined,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'No hay rutas disponibles',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Intenta actualizar más tarde',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         return RefreshIndicator(
           onRefresh: _loadInitialData,
+          color: const Color(0xFF2E7D32),
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: appProvider.rutas.length,
             itemBuilder: (context, index) {
               final ruta = appProvider.rutas[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: RutaCard(ruta: ruta),
               );
             },
@@ -408,10 +587,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Text(localizations.translate('cancel')),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                Provider.of<AppProvider>(context, listen: false).logout();
-                Navigator.of(context).pushReplacementNamed('/login');
+                final appProvider = Provider.of<AppProvider>(context, listen: false);
+                final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+                
+                // Limpiar configuraciones del usuario
+                settingsProvider.clearUserSettings();
+                
+                // Cerrar sesión de Supabase si existe
+                try {
+                  await AuthService.signOut();
+                  print('✅ [LOGOUT] Sesión de Supabase cerrada');
+                } catch (e) {
+                  print('⚠️ [LOGOUT] Error al cerrar sesión de Supabase: $e');
+                }
+                
+                // Hacer logout en la app
+                appProvider.logout();
+                
+                // Navegar al login usando pushNamedAndRemoveUntil para limpiar el stack
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
               },
               child: Text(localizations.translate('logout')),
             ),
@@ -1200,39 +1396,92 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              // Header del Drawer
-              DrawerHeader(
+              // Header del Drawer con gradiente moderno
+              Container(
                 decoration: BoxDecoration(
-                  color: Colors.green[700],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const GeoRuLogo(
-                      size: 48,
-                      showText: true,
-                      showSlogan: false,
-                    ),
-                    const SizedBox(height: 16),
-                    if (user != null) ...[
-                      Text(
-                        user.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user.email,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 14,
-                        ),
-                      ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF2E7D32),
+                      const Color(0xFF4CAF50),
+                      Colors.green[300]!,
                     ],
-                  ],
+                  ),
+                ),
+                child: DrawerHeader(
+                  decoration: const BoxDecoration(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const GeoRuLogo(
+                        size: 56,
+                        showText: true,
+                        showSlogan: false,
+                      ),
+                      const SizedBox(height: 20),
+                      if (user != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      user.name,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.email_rounded,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      user.email,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
 

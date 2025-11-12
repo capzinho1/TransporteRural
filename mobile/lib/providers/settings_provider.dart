@@ -3,55 +3,120 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_localizations.dart';
 
 class SettingsProvider with ChangeNotifier {
-  static const String _keyNotifications = 'notifications_enabled';
-  static const String _keyDarkMode = 'dark_mode_enabled';
-  static const String _keyLanguage = 'language_code';
+  static const String _keyNotificationsPrefix = 'notifications_enabled_';
+  static const String _keyDarkModePrefix = 'dark_mode_enabled_';
+  static const String _keyLanguagePrefix = 'language_code_';
 
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
   Locale _locale = const Locale('es', 'ES'); // Español por defecto
+  
+  int? _currentUserId; // ID del usuario actual
 
   bool get notificationsEnabled => _notificationsEnabled;
   bool get darkModeEnabled => _darkModeEnabled;
   Locale get locale => _locale;
 
   SettingsProvider() {
-    _loadSettings();
+    _loadGlobalSettings();
   }
 
-  Future<void> _loadSettings() async {
+  /// Cargar configuraciones globales (solo para login screen)
+  Future<void> _loadGlobalSettings() async {
+    // El modo oscuro global se usa solo para el login screen (fijo)
+    // No se carga aquí porque el login siempre usa modo claro
+    _notificationsEnabled = true; // Default
+    _darkModeEnabled = false; // Default para login
+    _locale = const Locale('es', 'ES'); // Default
+    notifyListeners();
+  }
+
+  /// Cargar configuraciones del usuario actual
+  Future<void> loadUserSettings(int? userId) async {
+    if (userId == null) {
+      // Si no hay usuario, usar valores por defecto
+      _notificationsEnabled = true;
+      _darkModeEnabled = false;
+      _locale = const Locale('es', 'ES');
+      _currentUserId = null;
+      notifyListeners();
+      return;
+    }
+
+    _currentUserId = userId;
     final prefs = await SharedPreferences.getInstance();
-    _notificationsEnabled = prefs.getBool(_keyNotifications) ?? true;
-    _darkModeEnabled = prefs.getBool(_keyDarkMode) ?? false;
     
-    final languageCode = prefs.getString(_keyLanguage) ?? 'es';
+    // Cargar configuraciones específicas del usuario
+    final keyNotifications = '$_keyNotificationsPrefix$userId';
+    final keyDarkMode = '$_keyDarkModePrefix$userId';
+    final keyLanguage = '$_keyLanguagePrefix$userId';
+    
+    _notificationsEnabled = prefs.getBool(keyNotifications) ?? true;
+    _darkModeEnabled = prefs.getBool(keyDarkMode) ?? false;
+    
+    final languageCode = prefs.getString(keyLanguage) ?? 'es';
     _locale = _getLocaleFromCode(languageCode);
     
+    print('📱 [SETTINGS] Configuraciones cargadas para usuario $userId:');
+    print('   - Notificaciones: $_notificationsEnabled');
+    print('   - Modo oscuro: $_darkModeEnabled');
+    print('   - Idioma: ${_locale.languageCode}');
+    
+    notifyListeners();
+  }
+
+  /// Limpiar configuraciones cuando el usuario cierra sesión
+  void clearUserSettings() {
+    _currentUserId = null;
+    _notificationsEnabled = true;
+    _darkModeEnabled = false;
+    _locale = const Locale('es', 'ES');
     notifyListeners();
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {
+    if (_currentUserId == null) {
+      print('⚠️ [SETTINGS] No hay usuario logueado, no se puede guardar configuración');
+      return;
+    }
+    
     _notificationsEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyNotifications, enabled);
+    final key = '$_keyNotificationsPrefix$_currentUserId';
+    await prefs.setBool(key, enabled);
+    print('💾 [SETTINGS] Notificaciones guardadas para usuario $_currentUserId: $enabled');
     notifyListeners();
   }
 
   Future<void> setDarkModeEnabled(bool enabled) async {
+    if (_currentUserId == null) {
+      print('⚠️ [SETTINGS] No hay usuario logueado, no se puede guardar configuración');
+      return;
+    }
+    
     _darkModeEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyDarkMode, enabled);
+    final key = '$_keyDarkModePrefix$_currentUserId';
+    await prefs.setBool(key, enabled);
+    print('💾 [SETTINGS] Modo oscuro guardado para usuario $_currentUserId: $enabled');
     notifyListeners();
   }
 
   Future<void> setLanguage(String languageCode) async {
+    if (_currentUserId == null) {
+      print('⚠️ [SETTINGS] No hay usuario logueado, no se puede guardar configuración');
+      return;
+    }
+    
     final newLocale = _getLocaleFromCode(languageCode);
     if (_locale.languageCode != newLocale.languageCode) {
       // Limpiar caché de traducciones antes de cambiar el idioma
       AppLocalizations.clearCache();
       _locale = newLocale;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyLanguage, languageCode);
+      final key = '$_keyLanguagePrefix$_currentUserId';
+      await prefs.setString(key, languageCode);
+      print('💾 [SETTINGS] Idioma guardado para usuario $_currentUserId: $languageCode');
       notifyListeners();
     }
   }
