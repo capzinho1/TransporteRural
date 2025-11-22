@@ -161,6 +161,14 @@ const validateBody = (req, res, next) => {
     
     if (value === null || value === undefined) return;
     
+    // Preservar supabase_auth_id sin modificar (es un UUID que no debe ser sanitizado)
+    if (key === 'supabase_auth_id') {
+      // Solo asegurar que sea string, sin sanitizar (UUID puede tener guiones)
+      req.body[key] = String(value);
+      // Salir temprano - no procesar este campo más
+      return; // Esto sale de la función callback para esta iteración
+    }
+    
     // Validar emails
     if (key === 'email' || key.includes('email')) {
       const sanitized = sanitizeEmail(value);
@@ -170,18 +178,19 @@ const validateBody = (req, res, next) => {
         req.body[key] = null; // Invalid email
       }
     }
-    // Validar IDs
-    else if (key.includes('id') || key.includes('Id') || key === 'user_id' || key === 'driver_id' || key === 'company_id') {
+    // Validar IDs (pero no UUIDs como supabase_auth_id)
+    else if ((key.includes('id') || key.includes('Id') || key === 'user_id' || key === 'driver_id' || key === 'company_id') 
+             && key !== 'supabase_auth_id') {
       const sanitized = validateAndSanitizeId(value);
       req.body[key] = sanitized;
     }
     // Validar números
-    else if (typeof value === 'number' || !isNaN(parseFloat(value))) {
+    else if (typeof value === 'number' || (!isNaN(parseFloat(value)) && typeof value !== 'string')) {
       const sanitized = validateNumber(value);
       req.body[key] = sanitized;
     }
-    // Sanitizar strings
-    else if (typeof value === 'string') {
+    // Sanitizar strings (pero NO supabase_auth_id que ya se preservó arriba)
+    else if (typeof value === 'string' && key !== 'supabase_auth_id') {
       // Longitudes máximas según el campo
       let maxLength = 255;
       if (key === 'name' || key === 'nombre') maxLength = 100;

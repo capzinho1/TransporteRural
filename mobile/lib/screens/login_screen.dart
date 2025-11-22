@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    
+
     // IMPORTANTE: Limpiar estado anterior antes de intentar login
     // Esto evita que queden datos de intentos anteriores fallidos
     appProvider.logout(); // Esto limpia el usuario y el user ID del ApiService
@@ -63,22 +63,25 @@ class _LoginScreenState extends State<LoginScreen> {
             _emailController.text.trim(),
             _passwordController.text,
           );
-          
+
           if (!success) {
-            // Si el error menciona "Método de autenticación incorrecto", 
+            // Si el error menciona "Método de autenticación incorrecto",
             // significa que el usuario usa Supabase Auth pero las credenciales fueron incorrectas
-            if (appProvider.error?.contains('Método de autenticación incorrecto') ?? false) {
-              throw Exception('Credenciales incorrectas. Este usuario se registró con Google o email/password.');
+            if (appProvider.error
+                    ?.contains('Método de autenticación incorrecto') ??
+                false) {
+              throw Exception(
+                  'Credenciales incorrectas. Este usuario se registró con Google o email/password.');
             }
             throw Exception(appProvider.error ?? 'Credenciales inválidas');
           }
-          
+
           usuario = appProvider.currentUser;
         } catch (backendError) {
           // Si ambos métodos fallan, limpiar estado y mostrar el error más específico
           appProvider.logout(); // Asegurar que el estado esté limpio
           final errorMsg = e.toString().replaceFirst('Exception: ', '');
-          if (errorMsg.contains('Credenciales inválidas') || 
+          if (errorMsg.contains('Credenciales inválidas') ||
               errorMsg.contains('Invalid login credentials')) {
             throw Exception('Email o contraseña incorrectos');
           }
@@ -89,11 +92,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (usuario != null && mounted) {
         // Establecer usuario solo si el login fue exitoso
         appProvider.setCurrentUser(usuario);
-        
+
         // Cargar configuraciones del usuario
-        final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+        final settingsProvider =
+            Provider.of<SettingsProvider>(context, listen: false);
         await settingsProvider.loadUserSettings(usuario.id);
-        
+
         // Redirigir según el rol del usuario
         final userRole = usuario.role;
         Widget destination;
@@ -111,11 +115,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       // Asegurar que el estado esté limpio en caso de error
       appProvider.logout();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al iniciar sesión: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+                'Error al iniciar sesión: ${e.toString().replaceFirst('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -135,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    
+
     // IMPORTANTE: Limpiar estado anterior antes de intentar login
     appProvider.logout();
 
@@ -153,11 +158,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       // Asegurar que el estado esté limpio en caso de error
       appProvider.logout();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al iniciar sesión con Google: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+                'Error al iniciar sesión con Google: ${e.toString().replaceFirst('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -187,7 +193,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
             child: Form(
               key: _formKey,
               child: Column(
@@ -254,7 +261,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Email',
                         hintText: 'tu@email.com',
                         hintStyle: TextStyle(color: Colors.grey[400]),
-                        prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
+                        prefixIcon:
+                            Icon(Icons.email_outlined, color: Colors.grey[600]),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -295,7 +303,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value == null || value.trim().isEmpty) {
                           return 'El email es obligatorio';
                         }
-                        final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                        final emailRegex = RegExp(
+                            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
                         if (!emailRegex.hasMatch(value.trim())) {
                           return 'Por favor ingresa un email válido';
                         }
@@ -327,7 +336,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Contraseña',
                         hintText: 'Tu contraseña',
                         hintStyle: TextStyle(color: Colors.grey[400]),
-                        prefixIcon: Icon(Icons.lock_outlined, color: Colors.grey[600]),
+                        prefixIcon:
+                            Icon(Icons.lock_outlined, color: Colors.grey[600]),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword

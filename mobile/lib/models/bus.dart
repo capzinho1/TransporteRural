@@ -2,6 +2,7 @@ class BusLocation {
   final int? id; // ID de la tabla
   final String busId; // Cambiado a String
   final String? routeId; // Cambiado a String y nullable
+  final String? nombreRuta; // Nombre de la ruta asignado al bus (para búsqueda)
   final int? driverId; // Nullable
   final int? companyId; // ID de la empresa
   final String? companyName; // Nombre de la empresa
@@ -15,6 +16,7 @@ class BusLocation {
     this.id,
     required this.busId,
     this.routeId,
+    this.nombreRuta,
     this.driverId,
     this.companyId,
     this.companyName,
@@ -52,6 +54,7 @@ class BusLocation {
       id: json['id'],
       busId: json['bus_id']?.toString() ?? '',
       routeId: json['route_id']?.toString(),
+      nombreRuta: json['nombre_ruta']?.toString(),
       driverId: json['driver_id'],
       companyId: json['company_id'],
       companyName: companyName,
@@ -68,6 +71,7 @@ class BusLocation {
       'id': id,
       'bus_id': busId,
       'route_id': routeId,
+      'nombre_ruta': nombreRuta,
       'driver_id': driverId,
       'company_id': companyId,
       'company_name': companyName,
@@ -83,6 +87,7 @@ class BusLocation {
     int? id,
     String? busId,
     String? routeId,
+    String? nombreRuta,
     int? driverId,
     int? companyId,
     String? companyName,
@@ -96,6 +101,7 @@ class BusLocation {
       id: id ?? this.id,
       busId: busId ?? this.busId,
       routeId: routeId ?? this.routeId,
+      nombreRuta: nombreRuta ?? this.nombreRuta,
       driverId: driverId ?? this.driverId,
       companyId: companyId ?? this.companyId,
       companyName: companyName ?? this.companyName,

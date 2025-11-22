@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/ruta.dart';
 import '../config/openstreetmap_config.dart';
 import '../services/geocoding_service.dart';
 import '../services/routing_service.dart';
+import 'dart:async';
+
+// Nota: La geolocalización del navegador se implementará más adelante
+// Por ahora, el mapa se centrará en las líneas creadas o en la ubicación por defecto
 
 /// Tipo de parada
 enum StopType {
@@ -57,6 +60,9 @@ class _RouteMapEditorState extends State<RouteMapEditor> {
   bool _isSearching = false;
   List<Map<String, dynamic>> _searchResults = [];
 
+  LatLng? _userLocation; // Ubicación del usuario
+  bool _locationLoaded = false; // Flag para saber si ya se cargó la ubicación
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +96,78 @@ class _RouteMapEditorState extends State<RouteMapEditor> {
         }
       }
     }
+
+    // Cargar ubicación del usuario si estamos en modo createLine y no hay puntos
+    if (widget.mode == RouteMapMode.createLine &&
+        _routePoints.isEmpty &&
+        !_locationLoaded) {
+      _loadUserLocation();
+    }
+
+    // Si estamos en modo addStops y hay polilínea, centrar en las líneas
+    if (widget.mode == RouteMapMode.addStops &&
+        widget.initialPolyline != null &&
+        widget.initialPolyline!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _centerOnPolyline();
+      });
+    }
+  }
+
+  /// Carga la ubicación del usuario usando la API de geolocalización del navegador
+  /// Nota: Por ahora, no se implementa la geolocalización del navegador
+  /// El mapa se centrará en las líneas creadas o en la ubicación por defecto
+  Future<void> _loadUserLocation() async {
+    if (_locationLoaded) return;
+
+    // Por ahora, no cargar la ubicación del usuario
+    // Se puede implementar más adelante usando dart:html o un paquete de geolocalización
+    _locationLoaded = true;
+  }
+
+  /// Centra el mapa en la polilínea creada
+  void _centerOnPolyline() {
+    if (_polylinePoints == null || _polylinePoints!.isEmpty) {
+      return;
+    }
+
+    // Calcular el centro de la polilínea
+    double minLat = _polylinePoints!.first.latitude;
+    double maxLat = _polylinePoints!.first.latitude;
+    double minLng = _polylinePoints!.first.longitude;
+    double maxLng = _polylinePoints!.first.longitude;
+
+    for (final point in _polylinePoints!) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    // Calcular el centro
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+
+    // Calcular el zoom apropiado basado en el área cubierta
+    final latDiff = maxLat - minLat;
+    final lngDiff = maxLng - minLng;
+    final maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
+
+    double zoom = 13.0;
+    if (maxDiff > 0.1) {
+      zoom = 11.0;
+    } else if (maxDiff > 0.05) {
+      zoom = 12.0;
+    } else if (maxDiff > 0.01) {
+      zoom = 13.0;
+    } else {
+      zoom = 14.0;
+    }
+
+    // Centrar el mapa
+    _mapController.move(LatLng(centerLat, centerLng), zoom);
+    print(
+        '✅ [ROUTE_MAP_EDITOR] Mapa centrado en polilínea: $centerLat, $centerLng (zoom: $zoom)');
   }
 
   @override
@@ -110,6 +188,11 @@ class _RouteMapEditorState extends State<RouteMapEditor> {
           });
           print(
               '✅ [ROUTE_MAP_EDITOR] Polilínea cargada en modo addStops: ${decoded.length} puntos');
+
+          // Centrar el mapa en la polilínea después de cargarla
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _centerOnPolyline();
+          });
         }
       }
     }
@@ -644,6 +727,112 @@ class _RouteMapEditorState extends State<RouteMapEditor> {
     return false;
   }
 
+  /// Obtiene el centro inicial del mapa según el modo y los datos disponibles
+  LatLng _getInitialCenter() {
+    // En modo addStops, si hay polilínea, centrar en ella
+    if (widget.mode == RouteMapMode.addStops &&
+        _polylinePoints != null &&
+        _polylinePoints!.isNotEmpty) {
+      return _getPolylineCenter();
+    }
+
+    // Si hay paradas, usar la primera
+    if (_stops.isNotEmpty) {
+      return LatLng(_stops.first.latitude, _stops.first.longitude);
+    }
+
+    // Si hay puntos de ruta, usar el primero
+    if (_routePoints.isNotEmpty) {
+      return _routePoints.first;
+    }
+
+    // Si hay ubicación del usuario y estamos en modo createLine, usarla
+    if (widget.mode == RouteMapMode.createLine && _userLocation != null) {
+      return _userLocation!;
+    }
+
+    // Por defecto, usar la ubicación por defecto
+    return const LatLng(
+      OpenStreetMapConfig.defaultLatitude,
+      OpenStreetMapConfig.defaultLongitude,
+    );
+  }
+
+  /// Obtiene el zoom inicial del mapa
+  double _getInitialZoom() {
+    if (_stops.isNotEmpty || _routePoints.isNotEmpty) {
+      return 13.0;
+    }
+
+    // Si hay polilínea en modo addStops, calcular zoom apropiado
+    if (widget.mode == RouteMapMode.addStops &&
+        _polylinePoints != null &&
+        _polylinePoints!.isNotEmpty) {
+      return _getPolylineZoom();
+    }
+
+    // Si hay ubicación del usuario, usar zoom más cercano
+    if (_userLocation != null) {
+      return 14.0;
+    }
+
+    return OpenStreetMapConfig.defaultZoom;
+  }
+
+  /// Calcula el centro de la polilínea
+  LatLng _getPolylineCenter() {
+    if (_polylinePoints == null || _polylinePoints!.isEmpty) {
+      return const LatLng(
+        OpenStreetMapConfig.defaultLatitude,
+        OpenStreetMapConfig.defaultLongitude,
+      );
+    }
+
+    double minLat = _polylinePoints!.first.latitude;
+    double maxLat = _polylinePoints!.first.latitude;
+    double minLng = _polylinePoints!.first.longitude;
+    double maxLng = _polylinePoints!.first.longitude;
+
+    for (final point in _polylinePoints!) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+  }
+
+  /// Calcula el zoom apropiado para la polilínea
+  double _getPolylineZoom() {
+    if (_polylinePoints == null || _polylinePoints!.isEmpty) {
+      return OpenStreetMapConfig.defaultZoom;
+    }
+
+    double minLat = _polylinePoints!.first.latitude;
+    double maxLat = _polylinePoints!.first.latitude;
+    double minLng = _polylinePoints!.first.longitude;
+    double maxLng = _polylinePoints!.first.longitude;
+
+    for (final point in _polylinePoints!) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    final latDiff = maxLat - minLat;
+    final lngDiff = maxLng - minLng;
+    final maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
+
+    // Calcular zoom basado en la diferencia
+    if (maxDiff > 0.1) return 11.0;
+    if (maxDiff > 0.05) return 12.0;
+    if (maxDiff > 0.01) return 13.0;
+    if (maxDiff > 0.005) return 14.0;
+    return 15.0;
+  }
+
   void _clearStops() {
     setState(() {
       _stops.clear();
@@ -735,17 +924,8 @@ class _RouteMapEditorState extends State<RouteMapEditor> {
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: _stops.isNotEmpty
-                      ? LatLng(_stops.first.latitude, _stops.first.longitude)
-                      : _routePoints.isNotEmpty
-                          ? _routePoints.first
-                          : const LatLng(
-                              OpenStreetMapConfig.defaultLatitude,
-                              OpenStreetMapConfig.defaultLongitude,
-                            ),
-                  initialZoom: _stops.isNotEmpty || _routePoints.isNotEmpty
-                      ? 13.0
-                      : OpenStreetMapConfig.defaultZoom,
+                  initialCenter: _getInitialCenter(),
+                  initialZoom: _getInitialZoom(),
                   minZoom: OpenStreetMapConfig.minZoom,
                   maxZoom: OpenStreetMapConfig.maxZoom,
                   onTap: _handleMapTap,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/bus.dart';
+import '../models/ruta.dart';
 import '../models/user_report.dart';
 import '../utils/bus_alerts.dart';
 import '../utils/app_colors.dart';
@@ -14,21 +15,24 @@ class BusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       margin: EdgeInsets.zero,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Colors.green[50]!,
-          ],
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.3)
+              : const Color(0xFF2E7D32).withValues(alpha: 0.2),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.5)
+                : Colors.black.withValues(alpha: 0.08),
             blurRadius: 15,
             offset: const Offset(0, 6),
             spreadRadius: 0,
@@ -118,7 +122,8 @@ class BusCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.getBusStatusColor(busLocation.status)
+                              color: AppColors.getBusStatusColor(
+                                      busLocation.status)
                                   .withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
@@ -147,39 +152,53 @@ class BusCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.grey[200]!,
+                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
                   width: 1,
                 ),
               ),
-              child: Column(
-                children: [
-                  _buildInfoRow(
-                    Icons.route,
-                    'Ruta',
-                    busLocation.routeId ?? 'N/A',
-                    AppColors.accentTeal,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInfoRow(
-                    Icons.person,
-                    'Conductor',
-                    busLocation.driverName ??
-                        (busLocation.driverId?.toString() ?? 'N/A'),
-                    AppColors.accentBlue,
-                  ),
-                  if (busLocation.companyName != null) ...[
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.business,
-                      'Empresa',
-                      busLocation.companyName!,
-                      AppColors.getCompanyColor(busLocation.companyId),
-                    ),
-                  ],
-                ],
+              child: Consumer<AppProvider>(
+                builder: (context, appProvider, child) {
+                  // Obtener nombre de la ruta desde la lista de rutas usando routeId
+                  String? routeName =
+                      _getRouteNameForBus(busLocation, appProvider.rutas);
+
+                  return Column(
+                    children: [
+                      // Mostrar nombre de ruta si está disponible (generado en Gestión de Ruta)
+                      if (routeName != null && routeName.isNotEmpty)
+                        _buildInfoRow(
+                          context,
+                          Icons.route,
+                          'Ruta',
+                          routeName,
+                          AppColors.primaryGreen,
+                        ),
+                      if (routeName != null && routeName.isNotEmpty)
+                        const SizedBox(height: 8),
+                      _buildInfoRow(
+                        context,
+                        Icons.person,
+                        'Conductor',
+                        busLocation.driverName ??
+                            (busLocation.driverId?.toString() ?? 'N/A'),
+                        AppColors.accentBlue,
+                      ),
+                      if (busLocation.companyName != null) ...[
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                          context,
+                          Icons.business,
+                          'Empresa',
+                          busLocation.companyName!,
+                          AppColors.getCompanyColor(busLocation.companyId),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
 
@@ -207,18 +226,19 @@ class BusCard extends StatelessWidget {
                     return const SizedBox.shrink();
                   }
 
+                  final isDark =
+                      Theme.of(context).brightness == Brightness.dark;
+
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.statusWarning.withValues(alpha: 0.1),
-                          AppColors.statusWarning.withValues(alpha: 0.05),
-                        ],
-                      ),
+                      color: isDark
+                          ? AppColors.statusWarning.withValues(alpha: 0.15)
+                          : AppColors.statusWarning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppColors.statusWarning.withValues(alpha: 0.3),
+                        color: AppColors.statusWarning
+                            .withValues(alpha: isDark ? 0.4 : 0.3),
                         width: 1.5,
                       ),
                     ),
@@ -289,52 +309,6 @@ class BusCard extends StatelessWidget {
 
                 return const SizedBox.shrink();
               },
-            ),
-
-            const SizedBox(height: 12),
-
-            // Ubicación
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.accentIndigo.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.accentIndigo.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on,
-                      color: AppColors.accentIndigo, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Ubicación',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Lat: ${busLocation.latitude.toStringAsFixed(4)}, '
-                          'Lng: ${busLocation.longitude.toStringAsFixed(4)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
 
             const SizedBox(height: 12),
@@ -516,33 +490,50 @@ class BusCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A',
-                      Icons.route, AppColors.accentTeal),
-                  _buildDetailRow(
-                    'Conductor',
-                    busLocation.driverName ??
-                        (busLocation.driverId?.toString() ?? 'N/A'),
-                    Icons.person,
-                    AppColors.accentBlue,
-                  ),
-                  if (busLocation.companyName != null)
-                    _buildDetailRow(
-                      'Empresa',
-                      busLocation.companyName!,
-                      Icons.business,
-                      AppColors.getCompanyColor(busLocation.companyId),
-                    ),
-                  _buildDetailRow(
-                    'Ubicación',
-                    'Lat: ${busLocation.latitude.toStringAsFixed(6)}\nLng: ${busLocation.longitude.toStringAsFixed(6)}',
-                    Icons.location_on,
-                    AppColors.accentIndigo,
-                  ),
-                  _buildDetailRow(
-                    'Última actualización',
-                    busLocation.lastUpdate ?? 'N/A',
-                    Icons.access_time,
-                    AppColors.textSecondary,
+                  Builder(
+                    builder: (dialogContext) {
+                      final appProvider = Provider.of<AppProvider>(
+                          dialogContext,
+                          listen: false);
+                      final routeName =
+                          _getRouteNameForBus(busLocation, appProvider.rutas);
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Mostrar nombre de ruta si está disponible (generado en Gestión de Ruta)
+                          if (routeName != null && routeName.isNotEmpty) ...[
+                            _buildDetailRow(
+                              'Ruta',
+                              routeName,
+                              Icons.route,
+                              AppColors.primaryGreen,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          _buildDetailRow(
+                            'Conductor',
+                            busLocation.driverName ??
+                                (busLocation.driverId?.toString() ?? 'N/A'),
+                            Icons.person,
+                            AppColors.accentBlue,
+                          ),
+                          if (busLocation.companyName != null)
+                            _buildDetailRow(
+                              'Empresa',
+                              busLocation.companyName!,
+                              Icons.business,
+                              AppColors.getCompanyColor(busLocation.companyId),
+                            ),
+                          _buildDetailRow(
+                            'Última actualización',
+                            busLocation.lastUpdate ?? 'N/A',
+                            Icons.access_time,
+                            AppColors.textSecondary,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   if (allTags.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -602,8 +593,34 @@ class BusCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(
-      IconData icon, String label, String value, Color iconColor) {
+  // Helper para obtener el nombre de la ruta de un bus
+  String? _getRouteNameForBus(BusLocation busLocation, List<Ruta> routes) {
+    // 1. Priorizar nombreRuta si está disponible (generado en Gestión de Rutas para el bus)
+    if (busLocation.nombreRuta != null && busLocation.nombreRuta!.isNotEmpty) {
+      return busLocation.nombreRuta;
+    }
+
+    // 2. Buscar en la lista de rutas usando routeId (nombre de la ruta generada en Gestión de Rutas)
+    if (busLocation.routeId != null && busLocation.routeId!.isNotEmpty) {
+      try {
+        final route = routes.firstWhere(
+          (r) => r.routeId == busLocation.routeId,
+        );
+        return route.name;
+      } catch (e) {
+        // Si no se encuentra la ruta, retornar null
+        return null;
+      }
+    }
+
+    // 3. Si no hay ruta, retornar null (no mostrar nada)
+    return null;
+  }
+
+  Widget _buildInfoRow(BuildContext context, IconData icon, String label,
+      String value, Color iconColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Row(
       children: [
         Icon(icon, size: 18, color: iconColor),
@@ -614,19 +631,20 @@ class BusCard extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+                  color: isDark ? Colors.grey[400] : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color:
+                      isDark ? const Color(0xFFE0E0E0) : AppColors.textPrimary,
                 ),
               ),
             ],

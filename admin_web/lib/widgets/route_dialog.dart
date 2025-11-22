@@ -21,6 +21,8 @@ class _RouteDialogState extends State<RouteDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _routeStartController = TextEditingController(); // Inicio
+  final TextEditingController _routeEndController = TextEditingController(); // Final
   final TextEditingController _scheduleController = TextEditingController();
 
   List<Parada> _routeStops = [];
@@ -40,8 +42,44 @@ class _RouteDialogState extends State<RouteDialog>
       _scheduleController.text = widget.ruta!.schedule;
       _routeStops = List.from(widget.ruta!.stops);
       _generatedPolyline = widget.ruta!.polyline;
+      
+      // Si el nombre tiene formato "Inicio - Final", separarlo
+      if (widget.ruta!.name.contains(' - ')) {
+        final parts = widget.ruta!.name.split(' - ');
+        if (parts.length >= 2) {
+          _routeStartController.text = parts[0].trim();
+          _routeEndController.text = parts.sublist(1).join(' - ').trim();
+        } else {
+          _routeStartController.text = widget.ruta!.name;
+        }
+      } else {
+        // Si no tiene el formato, intentar inferir desde las paradas
+        if (widget.ruta!.stops.isNotEmpty) {
+          _routeStartController.text = widget.ruta!.stops.first.name;
+          _routeEndController.text = widget.ruta!.stops.last.name;
+        }
+      }
     } else {
       _scheduleController.text = '06:00 - 22:00';
+    }
+    
+    // Actualizar nombre inicial después de cargar los datos
+    _updateRouteName();
+  }
+
+  // Actualizar el nombre completo cuando cambien inicio o final
+  void _updateRouteName() {
+    final start = _routeStartController.text.trim();
+    final end = _routeEndController.text.trim();
+    
+    if (start.isNotEmpty && end.isNotEmpty) {
+      _nameController.text = '$start - $end';
+    } else if (start.isNotEmpty) {
+      _nameController.text = start;
+    } else if (end.isNotEmpty) {
+      _nameController.text = end;
+    } else {
+      _nameController.text = '';
     }
   }
 
@@ -49,15 +87,22 @@ class _RouteDialogState extends State<RouteDialog>
   void dispose() {
     _tabController.dispose();
     _nameController.dispose();
+    _routeStartController.dispose();
+    _routeEndController.dispose();
     _scheduleController.dispose();
     super.dispose();
   }
 
   void _handleSave() {
-    if (_nameController.text.isEmpty || _scheduleController.text.isEmpty) {
+    // Actualizar nombre antes de validar
+    _updateRouteName();
+    
+    if (_routeStartController.text.trim().isEmpty || 
+        _routeEndController.text.trim().isEmpty || 
+        _scheduleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor completa todos los campos obligatorios'),
+          content: Text('Por favor completa todos los campos obligatorios (Inicio, Final y Horario)'),
           backgroundColor: Colors.red,
         ),
       );
@@ -193,14 +238,100 @@ class _RouteDialogState extends State<RouteDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Campo de Inicio
                         TextField(
-                          controller: _nameController,
+                          controller: _routeStartController,
                           decoration: const InputDecoration(
-                            labelText: 'Nombre de Ruta *',
-                            hintText: 'Ruta Centro - Norte',
-                            prefixIcon: Icon(Icons.route),
-                            helperText: 'Nombre descriptivo de la ruta',
+                            labelText: 'Punto de Inicio *',
+                            hintText: 'Ej: Linares',
+                            prefixIcon: Icon(Icons.radio_button_checked, color: Colors.green),
+                            helperText: 'Ciudad o punto de inicio de la ruta',
                             border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) {
+                            _updateRouteName();
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // Campo de Final
+                        TextField(
+                          controller: _routeEndController,
+                          decoration: const InputDecoration(
+                            labelText: 'Punto de Final *',
+                            hintText: 'Ej: Talca',
+                            prefixIcon: Icon(Icons.radio_button_unchecked, color: Colors.red),
+                            helperText: 'Ciudad o punto final de la ruta',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) {
+                            _updateRouteName();
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // Vista previa del nombre completo (solo lectura)
+                        Builder(
+                          builder: (context) {
+                            final start = _routeStartController.text.trim();
+                            final end = _routeEndController.text.trim();
+                            final previewName = start.isNotEmpty && end.isNotEmpty
+                                ? '$start - $end'
+                                : (start.isNotEmpty ? start : (end.isNotEmpty ? end : ''));
+                            
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.route, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Nombre de Ruta:',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          previewName.isNotEmpty
+                                              ? previewName
+                                              : 'Se generará automáticamente',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: previewName.isNotEmpty
+                                                ? Colors.black87
+                                                : Colors.grey[600],
+                                            fontStyle: previewName.isEmpty
+                                                ? FontStyle.italic
+                                                : FontStyle.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        // Campo oculto para el nombre completo (para guardar)
+                        Visibility(
+                          visible: false,
+                          child: TextField(
+                            controller: _nameController,
+                            enabled: false,
                           ),
                         ),
                         const SizedBox(height: 16),

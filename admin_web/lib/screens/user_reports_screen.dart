@@ -106,250 +106,464 @@ class _UserReportsScreenState extends State<UserReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Reportes de Usuarios',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Comentarios, sugerencias y reportes de usuarios',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showCreateReportDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Nuevo Reporte'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header moderno
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1E3A8A).withValues(alpha: 0.08),
+                    const Color(0xFF3B82F6).withValues(alpha: 0.08),
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!, width: 1),
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Filtros
-          Row(
-            children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'pending', label: Text('Pendientes')),
-                  ButtonSegment(value: 'all', label: Text('Todos')),
-                  ButtonSegment(value: 'resolved', label: Text('Resueltos')),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFFF5722),
+                              Color(0xFFFF7043),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.report_problem_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Reportes de Usuarios',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E3A8A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Comentarios, sugerencias y reportes de usuarios',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showCreateReportDialog(context),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Nuevo Reporte'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF5722),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
                 ],
-                selected: {_selectedFilter},
-                onSelectionChanged: (Set<String> newSelection) {
-                  setState(() {
-                    _selectedFilter = newSelection.first;
-                  });
-                  _loadReports();
-                },
               ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _loadReports,
-                tooltip: 'Actualizar',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 20),
 
-          // Lista de reportes
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_reports.isEmpty)
-            Card(
-              child: Padding(
+            // Filtros en contenedor moderno
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'pending',
+                          label: Text('Pendientes'),
+                          icon: Icon(Icons.pending_rounded, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: 'all',
+                          label: Text('Todos'),
+                          icon: Icon(Icons.list_rounded, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: 'resolved',
+                          label: Text('Resueltos'),
+                          icon: Icon(Icons.check_circle_rounded, size: 16),
+                        ),
+                      ],
+                      selected: {_selectedFilter},
+                      onSelectionChanged: (Set<String> newSelection) {
+                        setState(() {
+                          _selectedFilter = newSelection.first;
+                        });
+                        _loadReports();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded),
+                    color: const Color(0xFF3B82F6),
+                    onPressed: _loadReports,
+                    tooltip: 'Actualizar',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Lista de reportes
+            if (_isLoading)
+              Container(
                 padding: const EdgeInsets.all(48),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                ),
+                child: const Center(child: CircularProgressIndicator()),
+              )
+            else if (_reports.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(48),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                ),
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                      Icon(
+                        Icons.inbox_rounded,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'No hay reportes ${_selectedFilter == 'pending' ? 'pendientes' : 'disponibles'}',
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            )
-          else
-            ..._reports.map((report) => _buildReportCard(report)),
-        ],
+              )
+            else
+              ..._reports.map((report) => _buildReportCard(report)),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildReportCard(UserReport report) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _getPriorityColor(report.priority).withOpacity(0.2),
-          child: Icon(
-            _getTypeIcon(report.type),
-            color: _getPriorityColor(report.priority),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _getPriorityColor(report.priority).withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                report.title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            Chip(
-              label: Text(
-                report.priority.toUpperCase(),
-                style: const TextStyle(fontSize: 10, color: Colors.white),
-              ),
-              backgroundColor: _getPriorityColor(report.priority),
-              padding: EdgeInsets.zero,
-            ),
-          ],
-        ),
-        subtitle: Column(
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            Text(report.description),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Chip(
-                  label: Text(report.type),
-                  backgroundColor: Colors.blue[100],
-                ),
-                Chip(
-                  label: Text(report.status),
-                  backgroundColor:
-                      _getStatusColor(report.status).withOpacity(0.2),
-                ),
-                if (report.routeId != null)
-                  Chip(
-                    label: Text('Ruta: ${report.routeId}'),
-                    backgroundColor: Colors.purple[100],
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _getPriorityColor(report.priority)
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                if (report.busId != null)
-                  Chip(
-                    label: Text('Bus: ${report.busId}'),
-                    backgroundColor: Colors.green[100],
+                  child: Icon(
+                    _getTypeIcon(report.type),
+                    color: _getPriorityColor(report.priority),
+                    size: 24,
                   ),
-              ],
-            ),
-            if (report.tags != null && report.tags!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: report.tags!.map((tag) {
-                  return Chip(
-                    label: Text(
-                      tag,
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    backgroundColor: Colors.orange[200],
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
-              ),
-            ],
-            if (report.adminResponse != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              report.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: Color(0xFF1E3A8A),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getPriorityColor(report.priority),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              report.priority.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        report.description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[700],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              report.type,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF3B82F6),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(report.status)
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: _getStatusColor(report.status)
+                                    .withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              report.status.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _getStatusColor(report.status),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          if (report.routeId != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.route_rounded,
+                                    size: 12,
+                                    color: const Color(0xFF8B5CF6),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Ruta: ${report.routeId}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF8B5CF6),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (report.busId != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.directions_bus_rounded,
+                                    size: 12,
+                                    color: const Color(0xFF10B981),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Bus: ${report.busId}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF10B981),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (report.tags != null && report.tags!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: report.tags!.map((tag) {
+                            return Chip(
+                              label: Text(
+                                tag,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              backgroundColor: Colors.orange[200],
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                      if (report.adminResponse != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Respuesta del Administrador:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(report.adminResponse!),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Respuesta del Administrador:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    IconButton(
+                      icon: const Icon(Icons.visibility_rounded),
+                      color: const Color(0xFF3B82F6),
+                      onPressed: () => _showReportDetails(report),
+                      tooltip: 'Ver Detalles',
                     ),
-                    const SizedBox(height: 4),
-                    Text(report.adminResponse!),
+                    IconButton(
+                      icon: const Icon(Icons.edit_rounded),
+                      color: const Color(0xFFF59E0B),
+                      onPressed: () => _showReviewDialog(report),
+                      tooltip: 'Revisar',
+                    ),
+                    if (report.status != 'resolved')
+                      IconButton(
+                        icon: const Icon(Icons.check_circle_rounded),
+                        color: const Color(0xFF10B981),
+                        onPressed: () => _resolveReport(report),
+                        tooltip: 'Marcar como Resuelto',
+                      ),
                   ],
                 ),
-              ),
-            ],
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'view',
-              child: Row(
-                children: [
-                  Icon(Icons.visibility, size: 20),
-                  SizedBox(width: 8),
-                  Text('Ver Detalles'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'review',
-              child: Row(
-                children: [
-                  Icon(Icons.check, size: 20),
-                  SizedBox(width: 8),
-                  Text('Revisar'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'resolve',
-              child: Row(
-                children: [
-                  Icon(Icons.done, size: 20, color: Colors.green),
-                  SizedBox(width: 8),
-                  Text('Marcar como Resuelto'),
-                ],
-              ),
+              ],
             ),
           ],
-          onSelected: (value) {
-            if (value == 'view') {
-              _showReportDetails(report);
-            } else if (value == 'review') {
-              _showReviewDialog(report);
-            } else if (value == 'resolve') {
-              _resolveReport(report);
-            }
-          },
         ),
-        isThreeLine: true,
       ),
     );
   }
@@ -473,7 +687,7 @@ class _UserReportsScreenState extends State<UserReportsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selectedStatus,
+                  initialValue: selectedStatus,
                   decoration: const InputDecoration(
                     labelText: 'Estado',
                     border: OutlineInputBorder(),
@@ -500,7 +714,7 @@ class _UserReportsScreenState extends State<UserReportsScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedPriority,
+                  initialValue: selectedPriority,
                   decoration: const InputDecoration(
                     labelText: 'Prioridad',
                     border: OutlineInputBorder(),
@@ -627,7 +841,7 @@ class _UserReportsScreenState extends State<UserReportsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: selectedType,
+                      initialValue: selectedType,
                       decoration: const InputDecoration(
                         labelText: 'Tipo de Reporte *',
                         border: OutlineInputBorder(),
@@ -675,7 +889,7 @@ class _UserReportsScreenState extends State<UserReportsScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedPriority,
+                      initialValue: selectedPriority,
                       decoration: const InputDecoration(
                         labelText: 'Prioridad *',
                         border: OutlineInputBorder(),
@@ -698,7 +912,7 @@ class _UserReportsScreenState extends State<UserReportsScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String?>(
-                      value: selectedRouteId,
+                      initialValue: selectedRouteId,
                       decoration: const InputDecoration(
                         labelText: 'Ruta (opcional)',
                         border: OutlineInputBorder(),

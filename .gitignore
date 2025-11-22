@@ -13,6 +13,13 @@ yarn-error.log*
 .env.credentials
 mobile/.env.credentials
 
+# Credentials documentation (contains sensitive data)
+CREDENCIALES_*.md
+*CREDENCIALES*.md
+CONFIGURACION_ACTUAL_OAUTH.md
+PASOS_ACTUALIZAR_SUPABASE.md
+SOLUCION_ERROR_REQUESTED_PATH_INVALID.md
+
 # Flutter
 mobile/.dart_tool/
 mobile/.packages
@@ -21,6 +28,26 @@ mobile/.pub/
 mobile/build/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
+
+# Android build files
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/app/src/debug/
+mobile/android/app/src/profile/
+mobile/android/local.properties
+mobile/android/.idea/
+*.iml
+
+# iOS build files
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/.flutter-plugins
+mobile/ios/.flutter-plugins-dependencies
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
 
 # IDE
 .vscode/

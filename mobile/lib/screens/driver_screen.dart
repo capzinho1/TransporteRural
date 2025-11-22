@@ -792,7 +792,10 @@ class _DriverScreenState extends State<DriverScreen> {
               ],
             ),
             const Divider(height: 24),
-            _buildInfoRow('Ruta', bus.routeId ?? 'Sin asignar'),
+            _buildInfoRow(
+              'Ruta',
+              _getRouteNameForBus(bus, appProvider.rutas),
+            ),
             _buildInfoRow('Última actualización', bus.lastUpdate ?? 'Nunca'),
             if (appProvider.currentPosition != null)
               _buildInfoRow(
@@ -803,6 +806,30 @@ class _DriverScreenState extends State<DriverScreen> {
         ),
       ),
     );
+  }
+
+  // Helper para obtener el nombre de la ruta de un bus
+  String _getRouteNameForBus(BusLocation bus, List<Ruta> routes) {
+    // 1. Priorizar nombreRuta si está disponible
+    if (bus.nombreRuta != null && bus.nombreRuta!.isNotEmpty) {
+      return bus.nombreRuta!;
+    }
+    
+    // 2. Buscar en la lista de rutas usando routeId
+    if (bus.routeId != null && bus.routeId!.isNotEmpty) {
+      try {
+        final route = routes.firstWhere(
+          (r) => r.routeId == bus.routeId,
+        );
+        return route.name;
+      } catch (e) {
+        // Si no se encuentra la ruta, usar el routeId como fallback
+        return bus.routeId!;
+      }
+    }
+    
+    // 3. Fallback
+    return 'Sin asignar';
   }
 
   Widget _buildInfoRow(String label, String value) {

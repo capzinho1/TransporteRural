@@ -39,7 +39,8 @@ class _RatingsScreenState extends State<RatingsScreen> {
       List<Rating> ratings;
 
       if (_selectedDriverId != null) {
-        ratings = await adminProvider.apiService.getRatingsByDriver(_selectedDriverId!);
+        ratings = await adminProvider.apiService
+            .getRatingsByDriver(_selectedDriverId!);
       } else {
         ratings = await adminProvider.apiService.getRatings();
       }
@@ -98,129 +99,132 @@ class _RatingsScreenState extends State<RatingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Calificaciones de Conductores',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Calificaciones de Conductores',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Calificaciones dadas por los usuarios pasajeros',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Calificaciones dadas por los usuarios pasajeros',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
                         ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Filtro por conductor
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _selectedDriverId,
+                      decoration: const InputDecoration(
+                        labelText: 'Filtrar por conductor',
+                        prefixIcon: Icon(Icons.drive_eta),
+                        border: OutlineInputBorder(),
+                        helperText: 'Ver calificaciones de usuarios pasajeros',
+                      ),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Todos los conductores'),
+                        ),
+                        ...adminProvider.usuarios
+                            .where((u) => u.role == 'driver')
+                            .map((driver) => DropdownMenuItem(
+                                  value: driver.id,
+                                  child: Text(driver.name),
+                                )),
                       ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedDriverId = value;
+                        });
+                        _loadRatings();
+                      },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: _loadRatings,
+                    tooltip: 'Actualizar',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
 
-                // Filtro por conductor
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<int?>(
-                        value: _selectedDriverId,
-                        decoration: const InputDecoration(
-                          labelText: 'Filtrar por conductor',
-                          prefixIcon: Icon(Icons.drive_eta),
-                          border: OutlineInputBorder(),
-                          helperText: 'Ver calificaciones de usuarios pasajeros',
-                        ),
-                        items: [
-                          const DropdownMenuItem<int?>(
-                            value: null,
-                            child: Text('Todos los conductores'),
+              // Estadísticas si hay un conductor seleccionado
+              if (_selectedDriverId != null)
+                _buildDriverStats(_selectedDriverId!),
+
+              const SizedBox(height: 24),
+
+              // Lista de calificaciones
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (_ratings.isEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(48),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.star_border,
+                              size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No hay calificaciones${_selectedDriverId != null ? ' para este conductor' : ''}',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          ...adminProvider.usuarios
-                              .where((u) => u.role == 'driver')
-                              .map((driver) => DropdownMenuItem(
-                                    value: driver.id,
-                                    child: Text(driver.name),
-                                  )),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Las calificaciones son creadas por los usuarios pasajeros\n'
+                            'desde la aplicación móvil después de completar un viaje.',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedDriverId = value;
-                          });
-                          _loadRatings();
-                        },
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: _loadRatings,
-                      tooltip: 'Actualizar',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Estadísticas si hay un conductor seleccionado
-                if (_selectedDriverId != null) _buildDriverStats(_selectedDriverId!),
-
-                const SizedBox(height: 24),
-
-                // Lista de calificaciones
-                if (_isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_ratings.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(48),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Icon(Icons.star_border, size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No hay calificaciones${_selectedDriverId != null ? ' para este conductor' : ''}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Las calificaciones son creadas por los usuarios pasajeros\n'
-                              'desde la aplicación móvil después de completar un viaje.',
-                              style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  ..._ratings.map((rating) => _buildRatingCard(rating)),
-              ],
-            ),
-          );
-        },
-      );
+                  ),
+                )
+              else
+                ..._ratings.map((rating) => _buildRatingCard(rating)),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildDriverStats(int driverId) {
     return FutureBuilder<Map<String, dynamic>>(
       future: Provider.of<AdminProvider>(context, listen: false)
-          .apiService.getDriverRatingStats(driverId),
+          .apiService
+          .getDriverRatingStats(driverId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Card(
@@ -286,7 +290,8 @@ class _RatingsScreenState extends State<RatingsScreen> {
                         const SizedBox(height: 8),
                         Text(
                           'Puntualidad: ${(stats['averagePunctuality'] as double).toStringAsFixed(1)}/5',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[700]),
                         ),
                       ],
                     ],
@@ -379,7 +384,8 @@ class _RatingsScreenState extends State<RatingsScreen> {
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.schedule, size: 16, color: Colors.blue),
+                        const Icon(Icons.schedule,
+                            size: 16, color: Colors.blue),
                         const SizedBox(width: 4),
                         Text('Puntualidad: ${rating.punctualityRating}/5'),
                       ],
@@ -391,7 +397,8 @@ class _RatingsScreenState extends State<RatingsScreen> {
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.room_service, size: 16, color: Colors.green),
+                        const Icon(Icons.room_service,
+                            size: 16, color: Colors.green),
                         const SizedBox(width: 4),
                         Text('Servicio: ${rating.serviceRating}/5'),
                       ],
@@ -403,7 +410,8 @@ class _RatingsScreenState extends State<RatingsScreen> {
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.cleaning_services, size: 16, color: Colors.purple),
+                        const Icon(Icons.cleaning_services,
+                            size: 16, color: Colors.purple),
                         const SizedBox(width: 4),
                         Text('Limpieza: ${rating.cleanlinessRating}/5'),
                       ],
@@ -415,7 +423,8 @@ class _RatingsScreenState extends State<RatingsScreen> {
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.security, size: 16, color: Colors.orange),
+                        const Icon(Icons.security,
+                            size: 16, color: Colors.orange),
                         const SizedBox(width: 4),
                         Text('Seguridad: ${rating.safetyRating}/5'),
                       ],
@@ -445,6 +454,4 @@ class _RatingsScreenState extends State<RatingsScreen> {
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
-
 }
-

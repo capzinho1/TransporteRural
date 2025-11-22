@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/bus_card.dart';
 import '../widgets/ruta_card.dart';
@@ -11,6 +12,7 @@ import '../widgets/georu_logo.dart';
 import '../widgets/osm_map_widget.dart';
 import '../models/trip.dart';
 import '../models/bus.dart';
+import '../models/ruta.dart';
 import '../utils/bus_alerts.dart';
 import '../utils/app_colors.dart';
 import 'map_screen.dart';
@@ -26,6 +28,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   Timer? _userStatusCheckTimer;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  List<BusLocation> _filteredBuses = [];
+  List<Ruta> _filteredRutas = [];
+  bool _isSearching = false;
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -37,12 +45,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _loadInitialData();
       _startUserStatusCheck();
     });
+    
+    // Inicializar listas vacías
+    _filteredBuses = [];
+    _filteredRutas = [];
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _userStatusCheckTimer?.cancel();
+    _searchController.dispose();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -87,6 +101,125 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadInitialData() async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     await appProvider.refreshAllData();
+    
+    // Si no hay búsqueda activa, mostrar todos los resultados
+    if (_searchQuery.isEmpty) {
+      setState(() {
+        _filteredBuses = appProvider.busLocations;
+        _filteredRutas = appProvider.rutas;
+        _isSearching = false;
+      });
+    }
+  }
+
+  /// Realizar búsqueda fuzzy de rutas y buses
+  Future<void> _performSearch(String query) async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isSearching = true;
+    });
+    
+    if (query.trim().isEmpty) {
+      // Si la búsqueda está vacía, mostrar todos los resultados
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      setState(() {
+        _filteredBuses = appProvider.busLocations;
+        _filteredRutas = appProvider.rutas;
+        _isSearching = false;
+      });
+      return;
+    }
+    
+    try {
+      final apiService = ApiService();
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      apiService.setCurrentUserId(appProvider.currentUser?.id);
+      
+      final response = await apiService.searchRoutesAndBuses(
+        query: query,
+        limit: 50,
+      );
+      
+      if (!mounted) return;
+      
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        
+        // Procesar rutas encontradas
+        final routesData = data['routes'] as List<dynamic>? ?? [];
+        final searchRoutes = routesData.map((r) => Ruta.fromJson(r)).toList();
+        
+        // Procesar buses encontrados
+        final busesData = data['buses'] as List<dynamic>? ?? [];
+        final searchBuses = busesData.map((b) {
+          // Normalizar la estructura del bus
+          final busData = Map<String, dynamic>.from(b);
+          // Si tiene routes anidado, extraer el nombre
+          if (busData['routes'] != null && busData['routes'] is Map) {
+            final routeInfo = busData['routes'] as Map<String, dynamic>;
+            busData['route_id'] = routeInfo['route_id'];
+          }
+          return BusLocation.fromJson(busData);
+        }).toList();
+        
+        setState(() {
+          _filteredRutas = searchRoutes;
+          _filteredBuses = searchBuses;
+          _isSearching = false;
+        });
+      } else {
+        setState(() {
+          _filteredRutas = [];
+          _filteredBuses = [];
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      print('❌ [HOME_SCREEN] Error en búsqueda: $e');
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+      });
+      
+      // Mostrar error al usuario
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al buscar: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// Manejar cambios en el campo de búsqueda con debounce
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+    
+    // Cancelar el timer anterior si existe
+    _searchDebounceTimer?.cancel();
+    
+    // Crear un nuevo timer para esperar 500ms antes de buscar
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query);
+    });
+  }
+
+  /// Limpiar búsqueda
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _isSearching = false;
+    });
+    
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    setState(() {
+      _filteredBuses = appProvider.busLocations;
+      _filteredRutas = appProvider.rutas;
+    });
   }
 
   @override
@@ -125,75 +258,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 'Actualizar',
             iconSize: 24,
           ),
-          Builder(
-            builder: (popupContext) {
-              return PopupMenuButton<String>(
-                onSelected: (value) {
-                  final appProvider =
-                      Provider.of<AppProvider>(context, listen: false);
-                  final isPassenger = appProvider.currentUser?.role == 'user';
-
-                  if (value == 'logout') {
-                    _showLogoutDialog();
-                  } else if (value == 'trips' && isPassenger) {
-                    _showTripsHistoryDialog();
-                  } else if (value == 'reports' && isPassenger) {
-                    _showCreateReportDialog(busId: null);
-                  }
-                },
-                itemBuilder: (context) {
-                  final appProvider =
-                      Provider.of<AppProvider>(context, listen: false);
-                  final isPassenger = appProvider.currentUser?.role == 'user';
-                  final loc = AppLocalizations.of(context);
-
-                  final items = <PopupMenuItem<String>>[];
-
-                  if (isPassenger) {
-                    items.addAll([
-                      PopupMenuItem(
-                        value: 'trips',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.history, color: Colors.blue),
-                            const SizedBox(width: 8),
-                            Text(loc?.translate('trip_history') ??
-                                'Historial de Viajes'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'reports',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.report, color: Colors.orange),
-                            const SizedBox(width: 8),
-                            Text(loc?.translate('create_report') ??
-                                'Crear Reporte'),
-                          ],
-                        ),
-                      ),
-                    ]);
-                  }
-
-                  items.add(
-                    PopupMenuItem(
-                      value: 'logout',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.logout, color: Colors.red),
-                          const SizedBox(width: 8),
-                          Text(loc?.translate('logout') ?? 'Cerrar Sesión'),
-                        ],
-                      ),
-                    ),
-                  );
-
-                  return items;
-                },
-              );
-            },
-          ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -231,53 +295,76 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _buildMapTab(),
         ],
       ),
-      floatingActionButton: Consumer<AppProvider>(
-        builder: (context, appProvider, child) {
-          final isPassenger = appProvider.currentUser?.role == 'user';
+      // Eliminado: FloatingActionButton - Las acciones principales están en el Drawer y bottomNavigationBar
+      // Barra inferior eliminada - las funciones están en el TabBar y Drawer
+    );
+  }
 
-          if (isPassenger) {
-            // Menú flotante expandible para pasajeros
-            return FloatingActionButton(
-              heroTag: 'home_passenger_menu',
-              onPressed: () {
-                _showPassengerMenu(context);
-              },
-              child: const Icon(Icons.more_vert),
-            );
-          } else {
-            // Botón flotante normal para otros roles
-            return FloatingActionButton(
-              heroTag: 'home_map_button',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const MapScreen()),
-                );
-              },
-              child: const Icon(Icons.map),
-            );
-          }
-        },
-      ),
-      // Botón flotante adicional para mapa completo (visible para todos)
-      persistentFooterButtons: [
-        FloatingActionButton.extended(
-          heroTag: 'home_full_map_button',
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const MapScreen()),
-            );
-          },
-          icon: const Icon(Icons.map),
-          label: Text(AppLocalizations.of(context)?.translate('full_map') ??
-              'Mapa Completo'),
-          backgroundColor: Colors.green,
+  /// Widget del campo de búsqueda
+  Widget _buildSearchBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+            width: 1,
+          ),
         ),
-      ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: TextStyle(
+          color: isDark ? const Color(0xFFE0E0E0) : Colors.black87,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Buscar ruta o bus por nombre...',
+          hintStyle: TextStyle(
+            color: isDark ? Colors.grey[500] : Colors.grey[600],
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            color: isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32),
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.clear,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                  onPressed: _clearSearch,
+                  tooltip: 'Limpiar búsqueda',
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32),
+              width: 2,
+            ),
+          ),
+        ),
+        onChanged: _onSearchChanged,
+        ),
     );
   }
 
   Widget _buildBusesTab() {
-    return Consumer<AppProvider>(
+    return Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {
           return Center(
@@ -362,7 +449,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
         }
 
-        if (appProvider.busLocations.isEmpty) {
+              // Usar resultados filtrados si hay búsqueda activa, sino todos los buses
+              final busesToShow = _searchQuery.isNotEmpty 
+                  ? _filteredBuses 
+                  : appProvider.busLocations;
+
+              if (_isSearching) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                        ),
+                        SizedBox(height: 16),
+                        Text('Buscando...'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (_searchQuery.isNotEmpty && busesToShow.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No se encontraron buses',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Intenta con otro término de búsqueda',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (busesToShow.isEmpty && !_searchQuery.isNotEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32.0),
@@ -409,9 +555,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           color: const Color(0xFF2E7D32),
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: appProvider.busLocations.length,
+                  itemCount: busesToShow.length,
             itemBuilder: (context, index) {
-              final busLocation = appProvider.busLocations[index];
+                    final busLocation = busesToShow[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: BusCard(busLocation: busLocation),
@@ -420,11 +566,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildRutasTab() {
-    return Consumer<AppProvider>(
+    return Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {
           return Center(
@@ -512,7 +665,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
         }
 
-        if (appProvider.rutas.isEmpty) {
+              // Usar resultados filtrados si hay búsqueda activa, sino todas las rutas
+              final rutasToShow = _searchQuery.isNotEmpty 
+                  ? _filteredRutas 
+                  : appProvider.rutas;
+
+              if (_isSearching) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                        ),
+                        SizedBox(height: 16),
+                        Text('Buscando...'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (_searchQuery.isNotEmpty && rutasToShow.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No se encontraron rutas',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Intenta con otro término de búsqueda',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (rutasToShow.isEmpty && !_searchQuery.isNotEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32.0),
@@ -559,9 +771,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           color: const Color(0xFF2E7D32),
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: appProvider.rutas.length,
+                  itemCount: rutasToShow.length,
             itemBuilder: (context, index) {
-              final ruta = appProvider.rutas[index];
+                    final ruta = rutasToShow[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: RutaCard(ruta: ruta),
@@ -570,6 +782,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
+          ),
+        ),
+      ],
     );
   }
 
@@ -617,65 +832,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showPassengerMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Opciones de Pasajero',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            ListTile(
-              leading: const Icon(Icons.history, color: Colors.blue),
-              title: Text(
-                  AppLocalizations.of(context)?.translate('trip_history') ??
-                      'Historial de Viajes'),
-              subtitle: Text(AppLocalizations.of(context)
-                      ?.translate('view_completed_trips') ??
-                  'Ver tus viajes completados'),
-              onTap: () {
-                Navigator.pop(context);
-                _showTripsHistoryDialog();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.report, color: Colors.orange),
-              title: Text(
-                  AppLocalizations.of(context)?.translate('create_report') ??
-                      'Crear Reporte'),
-              subtitle: Text(AppLocalizations.of(context)
-                      ?.translate('send_complaint_suggestion') ??
-                  'Enviar queja o sugerencia'),
-              onTap: () {
-                Navigator.pop(context);
-                _showCreateReportDialog(busId: null);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.map, color: Colors.green),
-              title: Text(
-                  AppLocalizations.of(context)?.translate('view_full_map') ??
-                      'Ver Mapa Completo'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const MapScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ELIMINADO: _showPassengerMenu - Las opciones ahora están centralizadas en el Drawer
+  // Usar el Drawer (menú lateral) para acceder a todas las funciones
 
   Future<void> _showTripsHistoryDialog() async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
@@ -982,6 +1140,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Helper para obtener el nombre de la ruta de un bus
+  String _getRouteNameForBus(BusLocation busLocation, List<Ruta> routes) {
+    // 1. Priorizar nombreRuta si está disponible
+    if (busLocation.nombreRuta != null && busLocation.nombreRuta!.isNotEmpty) {
+      return busLocation.nombreRuta!;
+    }
+    
+    // 2. Buscar en la lista de rutas usando routeId
+    if (busLocation.routeId != null && busLocation.routeId!.isNotEmpty) {
+      try {
+        final route = routes.firstWhere(
+          (r) => r.routeId == busLocation.routeId,
+        );
+        return route.name;
+      } catch (e) {
+        // Si no se encuentra la ruta, usar el routeId como fallback
+        return busLocation.routeId!;
+      }
+    }
+    
+    // 3. Fallback
+    return 'Sin asignar';
+  }
+
   void _showBusInfoOnMap(BuildContext context, BusLocation busLocation) {
     showModalBottomSheet(
       context: context,
@@ -1077,7 +1259,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
             const SizedBox(height: 16),
-            _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A'),
+            _buildDetailRow(
+              'Ruta',
+              _getRouteNameForBus(busLocation, Provider.of<AppProvider>(context, listen: false).rutas),
+            ),
             _buildDetailRow(
               'Conductor',
               busLocation.driverName ??
@@ -1485,52 +1670,101 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-              // Opciones del menú para pasajeros
+              // ===== SECCIÓN: ACCIONES PRINCIPALES =====
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  localizations.translate('main_actions') ?? 'Acciones Principales',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+
+              // Opciones específicas para pasajeros
               if (isPassenger) ...[
                 ListTile(
-                  leading: const Icon(Icons.history),
+                  leading: const Icon(Icons.history, color: Colors.blue),
                   title: Text(localizations.translate('trip_history')),
+                  subtitle: Text(
+                    localizations.translate('view_completed_trips') ?? 
+                    'Ver tus viajes completados',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _showTripsHistoryDialog();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.report),
+                  leading: const Icon(Icons.report, color: Colors.orange),
                   title: Text(localizations.translate('create_report')),
+                  subtitle: Text(
+                    localizations.translate('send_complaint_suggestion') ?? 
+                    'Enviar queja o sugerencia',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _showCreateReportDialog(busId: null);
                   },
                 ),
-                const Divider(),
               ],
 
-              // Configuración
+              // Mapa completo (disponible para todos)
               ListTile(
-                leading: const Icon(Icons.settings),
-                title: Text(localizations.translate('configuration')),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              // Mapa completo
-              ListTile(
-                leading: const Icon(Icons.map),
+                leading: const Icon(Icons.map, color: Colors.green),
                 title: Text(localizations.translate('full_map')),
+                subtitle: Text(
+                  localizations.translate('view_complete_map') ?? 
+                  'Ver mapa completo de buses',
+                  style: const TextStyle(fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MapScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(),
+
+              // ===== SECCIÓN: CONFIGURACIÓN =====
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  localizations.translate('settings') ?? 'Configuración',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+
+              // Configuración
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: Text(localizations.translate('configuration')),
+                subtitle: Text(
+                  localizations.translate('app_settings') ?? 
+                  'Ajustes de la aplicación',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
                     ),
                   );
                 },

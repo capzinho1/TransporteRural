@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/bus.dart';
 import '../models/ruta.dart';
 import '../models/usuario.dart';
@@ -13,6 +15,9 @@ import '../services/location_service.dart';
 class AppProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
   final LocationService _locationService = LocationService();
+  
+  // Clave para guardar la sesión del usuario
+  static const String _keySavedUser = 'saved_user_session';
 
   // Getter para acceder al ApiService desde fuera
   ApiService get apiService => _apiService;
@@ -85,6 +90,9 @@ class AppProvider extends ChangeNotifier {
         // Establecer el user ID en el ApiService para autenticación en peticiones futuras
         _apiService.setCurrentUserId(_currentUser!.id);
         
+        // Guardar la sesión del usuario
+        await _saveUserSession(_currentUser!);
+        
         // Cargar configuraciones del usuario después del login
         // Esto se hará desde el widget que maneja el login
       } else {
@@ -109,6 +117,8 @@ class AppProvider extends ChangeNotifier {
     _rutas.clear();
     // Limpiar el user ID del ApiService
     _apiService.setCurrentUserId(null);
+    // Limpiar la sesión guardada
+    _clearSavedUserSession();
     // Las configuraciones se limpiarán desde el widget que maneja el logout
     notifyListeners();
   }
@@ -118,9 +128,76 @@ class AppProvider extends ChangeNotifier {
     _currentUser = usuario;
     // Establecer el user ID en el ApiService para autenticación en peticiones futuras
     _apiService.setCurrentUserId(usuario.id);
+    // Guardar la sesión del usuario
+    _saveUserSession(usuario);
     print('✅ [APP_PROVIDER] Usuario establecido: ID=${usuario.id}, Email=${usuario.email}, Role=${usuario.role}');
     print('✅ [APP_PROVIDER] User ID configurado en ApiService: ${usuario.id}');
     notifyListeners();
+  }
+  
+  /// Guardar sesión del usuario en SharedPreferences
+  Future<void> _saveUserSession(Usuario usuario) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = jsonEncode(usuario.toJson());
+      await prefs.setString(_keySavedUser, userJson);
+      print('💾 [APP_PROVIDER] Sesión del usuario guardada: ID=${usuario.id}');
+    } catch (e) {
+      print('⚠️ [APP_PROVIDER] Error al guardar sesión: $e');
+    }
+  }
+  
+  /// Cargar sesión del usuario desde SharedPreferences
+  Future<Usuario?> loadSavedUserSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString(_keySavedUser);
+      
+      if (userJson == null) {
+        print('ℹ️ [APP_PROVIDER] No hay sesión guardada');
+        return null;
+      }
+      
+      final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+      final usuario = Usuario.fromJson(userMap);
+      print('✅ [APP_PROVIDER] Sesión cargada: ID=${usuario.id}, Email=${usuario.email}');
+      return usuario;
+    } catch (e) {
+      print('⚠️ [APP_PROVIDER] Error al cargar sesión: $e');
+      return null;
+    }
+  }
+  
+  /// Limpiar sesión guardada
+  Future<void> _clearSavedUserSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keySavedUser);
+      print('🗑️ [APP_PROVIDER] Sesión guardada eliminada');
+    } catch (e) {
+      print('⚠️ [APP_PROVIDER] Error al limpiar sesión: $e');
+    }
+  }
+  
+  /// Verificar si la sesión guardada es válida (usuario aún activo)
+  Future<bool> validateSavedSession(Usuario usuario) async {
+    try {
+      // Verificar estado del usuario en el backend
+      final status = await _apiService.checkUserStatus(usuario.id);
+      final isActive = status['active'] as bool? ?? true;
+      
+      if (!isActive) {
+        print('⚠️ [APP_PROVIDER] Usuario guardado está desactivado');
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      // Si hay error al verificar, asumir que la sesión es válida
+      // (podría ser un error de red temporal)
+      print('⚠️ [APP_PROVIDER] Error al validar sesión: $e');
+      return true;
+    }
   }
   
   /// Obtener ID del usuario actual (para SettingsProvider)

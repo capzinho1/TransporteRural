@@ -21,8 +21,9 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Consumer<AdminProvider>(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Consumer<AdminProvider>(
         builder: (context, adminProvider, child) {
           if (adminProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -32,39 +33,107 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
             return _buildEmptyState();
           }
 
-          return RefreshIndicator(
-            onRefresh: () => adminProvider.loadBuses(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Gestión de Buses',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showBusDialog(context, null),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Agregar Bus'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header moderno
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF1E3A8A).withValues(alpha: 0.08),
+                      const Color(0xFF3B82F6).withValues(alpha: 0.08),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  _buildBusesTable(adminProvider.buses),
-                ],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF1E3A8A),
+                                Color(0xFF3B82F6),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.directions_bus_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Gestión de Buses',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E3A8A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${adminProvider.buses.length} buses registrados',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showBusDialog(context, null),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Agregar Bus'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3B82F6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+
+              // Tabla de buses en formato de tarjetas
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => adminProvider.loadBuses(),
+                  child: ListView.builder(
+                    itemCount: adminProvider.buses.length,
+                    itemBuilder: (context, index) {
+                      final bus = adminProvider.buses[index];
+                      return _buildBusCard(bus);
+                    },
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -76,114 +145,208 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.directions_bus_outlined,
-            size: 100,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No hay buses registrados',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.directions_bus_outlined,
+              size: 80,
+              color: Color(0xFF3B82F6),
+            ),
           ),
           const SizedBox(height: 24),
+          const Text(
+            'No hay buses registrados',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E3A8A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Agrega tu primer bus para comenzar',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () => _showBusDialog(context, null),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: const Text('Agregar Primer Bus'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3B82F6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 16,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBusesTable(List<BusLocation> buses) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
-        columns: const [
-          DataColumn(label: Text('ID Bus')),
-          DataColumn(label: Text('Ruta')),
-          DataColumn(label: Text('Conductor')),
-          DataColumn(label: Text('Latitud')),
-          DataColumn(label: Text('Longitud')),
-          DataColumn(label: Text('Estado')),
-          DataColumn(label: Text('Acciones')),
+  Widget _buildBusCard(BusLocation bus) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
-        rows: buses.map((bus) {
-          return DataRow(
-            cells: [
-              DataCell(Text(bus.busId)),
-              DataCell(Text(bus.routeId ?? 'N/A')),
-              DataCell(Text(bus.driverId?.toString() ?? 'N/A')),
-              DataCell(Text(bus.latitude.toStringAsFixed(4))),
-              DataCell(Text(bus.longitude.toStringAsFixed(4))),
-              DataCell(_buildStatusChip(bus.status)),
-              DataCell(
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        leading: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _getStatusColor(bus.status).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            Icons.directions_bus_rounded,
+            color: _getStatusColor(bus.status),
+            size: 24,
+          ),
+        ),
+        title: Row(
+          children: [
+            Text(
+              bus.busId,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildStatusChip(bus.status),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (bus.nombreRuta != null && bus.nombreRuta!.isNotEmpty)
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _showBusDialog(context, bus),
-                      tooltip: 'Editar',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(context, bus),
-                      tooltip: 'Eliminar',
+                    Icon(Icons.route_rounded,
+                        size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      bus.nombreRuta!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
                     ),
                   ],
                 ),
-              ),
+              if (bus.driverId != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.person_rounded,
+                        size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Conductor ID: ${bus.driverId}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          );
-        }).toList(),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_rounded),
+              color: const Color(0xFF3B82F6),
+              onPressed: () => _showBusDialog(context, bus),
+              tooltip: 'Editar',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_rounded),
+              color: Colors.red,
+              onPressed: () => _confirmDelete(context, bus),
+              tooltip: 'Eliminar',
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color color;
-    String label;
-
+  Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'active':
       case 'en_ruta':
-        color = Colors.green;
-        label = 'Activo';
-        break;
+        return const Color(0xFF10B981);
       case 'inactive':
-        color = Colors.grey;
-        label = 'Inactivo';
-        break;
+        return Colors.grey;
       case 'maintenance':
-        color = Colors.orange;
-        label = 'Mantenimiento';
-        break;
+        return const Color(0xFFF59E0B);
       default:
-        color = Colors.blue;
-        label = status;
+        return const Color(0xFF3B82F6);
     }
+  }
 
-    return Chip(
-      label: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
+  Widget _buildStatusChip(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status).withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: _getStatusColor(status).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
-      backgroundColor: color,
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(
+          color: _getStatusColor(status),
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
   void _showBusDialog(BuildContext context, BusLocation? bus) {
     final patenteController = TextEditingController(text: bus?.busId ?? '');
+    final nombreRutaController =
+        TextEditingController(text: bus?.nombreRuta ?? '');
 
-    // Variables de estado que se mantendrán durante la vida del diálogo
     String selectedStatus = bus?.status ?? 'inactive';
     int? selectedDriverId = bus?.driverId;
 
-    // Cargar usuarios (conductores) si no están cargados
     final adminProvider = Provider.of<AdminProvider>(context, listen: false);
     if (adminProvider.usuarios.isEmpty) {
       adminProvider.loadUsuarios();
@@ -193,13 +356,32 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
       context: context,
       builder: (context) => Consumer<AdminProvider>(
         builder: (context, provider, child) {
-          // Filtrar solo conductores
           final conductores =
               provider.usuarios.where((u) => u.role == 'driver').toList();
 
           return StatefulBuilder(
             builder: (context, setState) => AlertDialog(
-              title: Text(bus == null ? 'Agregar Bus' : 'Editar Bus'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.directions_bus_rounded,
+                      color: Color(0xFF3B82F6),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(bus == null ? 'Agregar Bus' : 'Editar Bus'),
+                ],
+              ),
               content: SingleChildScrollView(
                 child: SizedBox(
                   width: 400,
@@ -211,17 +393,31 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Patente *',
                           hintText: 'ABC1234',
-                          prefixIcon: Icon(Icons.directions_bus),
-                          helperText: 'Ingresa la patente del bus',
+                          prefixIcon: Icon(Icons.directions_bus_rounded),
+                          border: OutlineInputBorder(),
                         ),
                         textCapitalization: TextCapitalization.characters,
                       ),
                       const SizedBox(height: 16),
+                      TextField(
+                        controller: nombreRutaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre de Ruta',
+                          hintText: 'Ej: La Pintana - Puente Alto',
+                          prefixIcon: Icon(Icons.route_rounded),
+                          border: OutlineInputBorder(),
+                          helperText:
+                              'Nombre para facilitar la búsqueda (opcional)',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       DropdownButtonFormField<int?>(
-                        value: selectedDriverId,
+                        key: ValueKey('driver_$selectedDriverId'),
+                        initialValue: selectedDriverId,
                         decoration: const InputDecoration(
                           labelText: 'Conductor',
-                          prefixIcon: Icon(Icons.person),
+                          prefixIcon: Icon(Icons.person_rounded),
+                          border: OutlineInputBorder(),
                           helperText: 'Selecciona un conductor (opcional)',
                         ),
                         items: [
@@ -238,16 +434,19 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                           }),
                         ],
                         onChanged: (value) {
-                          selectedDriverId = value;
-                          setState(() {});
+                          setState(() {
+                            selectedDriverId = value;
+                          });
                         },
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: selectedStatus,
+                        key: ValueKey('status_$selectedStatus'),
+                        initialValue: selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Estado *',
-                          prefixIcon: Icon(Icons.info),
+                          prefixIcon: Icon(Icons.info_rounded),
+                          border: OutlineInputBorder(),
                         ),
                         items: const [
                           DropdownMenuItem(
@@ -265,30 +464,6 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                           }
                         },
                       ),
-                      const SizedBox(height: 8),
-                      if (conductores.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            'No hay conductores registrados. Agrega conductores en "Gestión de Conductores".',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange[700],
-                              fontStyle: FontStyle.italic,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      else
-                        const Text(
-                          'Nota: La ruta y ubicación se asignarán automáticamente cuando el bus esté en uso.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
                     ],
                   ),
                 ),
@@ -300,7 +475,6 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    // Validar que la patente no esté vacía
                     if (patenteController.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -311,23 +485,18 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                       return;
                     }
 
-                    // Crear el bus con valores por defecto
-                    // route_id será null (se asignará después)
-                    // latitude y longitude serán 0.0 (se actualizarán cuando el bus esté en ruta)
                     final newBus = BusLocation(
                       id: bus?.id,
                       busId: patenteController.text.trim().toUpperCase(),
-                      routeId: bus
-                          ?.routeId, // Mantener route_id al editar, null al crear
-                      driverId:
-                          selectedDriverId, // ID del conductor seleccionado (puede ser null)
-                      latitude: bus?.latitude ??
-                          0.0, // Mantener lat al editar, 0.0 al crear
-                      longitude: bus?.longitude ??
-                          0.0, // Mantener lng al editar, 0.0 al crear
+                      nombreRuta: nombreRutaController.text.trim().isNotEmpty
+                          ? nombreRutaController.text.trim()
+                          : null,
+                      routeId: bus?.routeId,
+                      driverId: selectedDriverId,
+                      latitude: bus?.latitude ?? 0.0,
+                      longitude: bus?.longitude ?? 0.0,
                       status: selectedStatus,
-                      companyId:
-                          bus?.companyId, // Mantener company_id si existe
+                      companyId: bus?.companyId,
                     );
 
                     final provider =
@@ -353,7 +522,6 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                         ),
                       );
                     } else if (context.mounted) {
-                      // Mostrar error si falla
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
@@ -365,6 +533,10 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
                       );
                     }
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                  ),
                   child: Text(bus == null ? 'Agregar' : 'Actualizar'),
                 ),
               ],
@@ -379,7 +551,16 @@ class _BusesManagementScreenState extends State<BusesManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar Eliminación'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_rounded, color: Colors.red),
+            SizedBox(width: 12),
+            Text('Confirmar Eliminación'),
+          ],
+        ),
         content: Text('¿Estás seguro de eliminar el bus ${bus.busId}?'),
         actions: [
           TextButton(

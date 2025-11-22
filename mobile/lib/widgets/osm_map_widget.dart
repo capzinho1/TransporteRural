@@ -94,12 +94,13 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
             },
           ),
           children: [
-            // Capa de tiles de OpenStreetMap
+            // Capa de tiles de OpenStreetMap (menos saturado)
             TileLayer(
               urlTemplate: OpenStreetMapConfig.tileLayerUrlTemplate,
               userAgentPackageName: 'com.transporterural.georu',
               maxZoom: OpenStreetMapConfig.maxZoom,
               maxNativeZoom: OpenStreetMapConfig.maxNativeZoom,
+              subdomains: OpenStreetMapConfig.subdomains,
             ),
 
             // Marcadores de buses
@@ -295,7 +296,10 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
               ],
             ),
             const SizedBox(height: 16),
-            _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A'),
+            _buildDetailRow(
+              'Ruta',
+              _getRouteNameForBus(busLocation),
+            ),
             _buildDetailRow(
               'Conductor',
               busLocation.driverName ??
@@ -336,6 +340,34 @@ class _OsmMapWidgetState extends State<OsmMapWidget> {
         ),
       ),
     );
+  }
+
+  // Helper para obtener el nombre de la ruta de un bus
+  String _getRouteNameForBus(BusLocation busLocation) {
+    // Obtener las rutas del provider
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final routes = appProvider.rutas;
+    
+    // 1. Priorizar nombreRuta si está disponible
+    if (busLocation.nombreRuta != null && busLocation.nombreRuta!.isNotEmpty) {
+      return busLocation.nombreRuta!;
+    }
+    
+    // 2. Buscar en la lista de rutas usando routeId
+    if (busLocation.routeId != null && busLocation.routeId!.isNotEmpty) {
+      try {
+        final route = routes.firstWhere(
+          (r) => r.routeId == busLocation.routeId,
+        );
+        return route.name;
+      } catch (e) {
+        // Si no se encuentra la ruta, usar el routeId como fallback
+        return busLocation.routeId!;
+      }
+    }
+    
+    // 3. Fallback
+    return 'Sin asignar';
   }
 
   Widget _buildDetailRow(String label, String value,

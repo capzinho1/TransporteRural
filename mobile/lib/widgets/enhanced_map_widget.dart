@@ -138,12 +138,13 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
         },
       ),
       children: [
-        // Capa de tiles de OpenStreetMap
+        // Capa de tiles de OpenStreetMap (menos saturado)
         TileLayer(
           urlTemplate: OpenStreetMapConfig.tileLayerUrlTemplate,
           userAgentPackageName: 'com.transporterural.georu',
           maxZoom: OpenStreetMapConfig.maxZoom,
           maxNativeZoom: OpenStreetMapConfig.maxNativeZoom,
+          subdomains: OpenStreetMapConfig.subdomains,
         ),
 
         // Capa de rutas (polylines) - solo mostrar si hay ruta o bus seleccionado
@@ -425,11 +426,12 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
     return widget.buses.map((busLocation) {
       // Obtener alertas del bus si están habilitadas
       final hasAlerts = widget.showAlerts;
+      final statusColor = AppColors.getBusStatusColor(busLocation.status);
 
       return Marker(
         point: latlong2.LatLng(busLocation.latitude, busLocation.longitude),
-        width: 50,
-        height: 50,
+        width: 56,
+        height: 56,
         child: GestureDetector(
           onTap: () {
             if (widget.onBusTap != null) {
@@ -441,27 +443,61 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
           child: Stack(
             alignment: Alignment.center,
             children: [
+              // Sombra exterior animada
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.8, end: 1.0),
+                duration: const Duration(seconds: 2),
+                curve: Curves.easeInOut,
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // Contenedor principal con gradiente
               Container(
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  color: AppColors.getBusStatusColor(busLocation.status),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      statusColor,
+                      statusColor.withValues(alpha: 0.8),
+                    ],
+                  ),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
+                  border: Border.all(color: Colors.white, width: 3.5),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.getBusStatusColor(busLocation.status)
-                          .withValues(alpha: 0.5),
-                      blurRadius: 8,
+                      color: statusColor.withValues(alpha: 0.6),
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
-                      spreadRadius: 1,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.directions_bus,
+                child: Icon(
+                  Icons.directions_bus_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: 26,
                 ),
               ),
+              // Indicador de alerta mejorado
               if (hasAlerts)
                 FutureBuilder<List<UserReport>>(
                   future: Provider.of<AppProvider>(context, listen: false)
@@ -476,24 +512,51 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
                       }
                       if (allTags.isNotEmpty) {
                         return Positioned(
-                          top: -5,
-                          right: -5,
+                          top: -2,
+                          right: -2,
                           child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF5722), Color(0xFFFF7043)],
+                              ),
                               shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.6),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
                             ),
                             child: const Icon(
-                              Icons.warning,
+                              Icons.warning_rounded,
                               color: Colors.white,
-                              size: 12,
+                              size: 14,
                             ),
                           ),
                         );
                       }
                     }
                     return const SizedBox.shrink();
+                  },
+                ),
+              // Indicador de estado pulsante para buses activos
+              if (busLocation.status == 'active' || busLocation.status == 'en_ruta')
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.5, end: 1.0),
+                  duration: const Duration(milliseconds: 1500),
+                  curve: Curves.easeInOut,
+                  builder: (context, opacity, child) {
+                    return Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: opacity * 0.3),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    );
                   },
                 ),
             ],
@@ -649,7 +712,10 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A'),
+                      _buildDetailRow(
+                        'Ruta',
+                        _getRouteNameForBus(busLocation, widget.routes),
+                      ),
                       _buildDetailRow(
                         'Conductor',
                         busLocation.driverName ??
@@ -799,6 +865,30 @@ class _EnhancedMapWidgetState extends State<EnhancedMapWidget> {
         ),
       ),
     );
+  }
+
+  // Helper para obtener el nombre de la ruta de un bus
+  String _getRouteNameForBus(BusLocation busLocation, List<Ruta> routes) {
+    // 1. Priorizar nombreRuta si está disponible
+    if (busLocation.nombreRuta != null && busLocation.nombreRuta!.isNotEmpty) {
+      return busLocation.nombreRuta!;
+    }
+    
+    // 2. Buscar en la lista de rutas usando routeId
+    if (busLocation.routeId != null && busLocation.routeId!.isNotEmpty) {
+      try {
+        final route = routes.firstWhere(
+          (r) => r.routeId == busLocation.routeId,
+        );
+        return route.name;
+      } catch (e) {
+        // Si no se encuentra la ruta, usar el routeId como fallback
+        return busLocation.routeId!;
+      }
+    }
+    
+    // 3. Fallback
+    return 'Sin asignar';
   }
 
   Widget _buildDetailRow(String label, String value,

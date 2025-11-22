@@ -127,7 +127,7 @@ router.get('/:id', validateParams, async (req, res) => {
 // POST /api/usuarios - Crear nuevo usuario
 router.post('/', validateAll, async (req, res) => {
   try {
-    const { name, email, role, password, notification_tokens, company_id } = req.body;
+    let { name, email, role, password, notification_tokens, company_id } = req.body;
     
     // Validar campos obligatorios
     if (!name || name.trim() === '') {
@@ -190,6 +190,20 @@ router.post('/', validateAll, async (req, res) => {
       notification_tokens: notification_tokens ? validateAndSanitizeString(notification_tokens, 500) : null,
       company_id: finalCompanyId || null
     };
+    
+    // Agregar campo active si se proporciona
+    if (req.body.active !== undefined) {
+      insertData.active = Boolean(req.body.active);
+    }
+    
+    // Agregar driver_status si es un conductor
+    if (role === 'driver' && req.body.driver_status) {
+      const allowedStatuses = ['disponible', 'en_ruta', 'fuera_de_servicio', 'en_descanso'];
+      const status = String(req.body.driver_status).toLowerCase();
+      if (allowedStatuses.includes(status)) {
+        insertData.driver_status = status;
+      }
+    }
     
     // Agregar password si se proporciona (para nuevos usuarios)
     if (password && typeof password === 'string' && password.trim() !== '') {
@@ -512,12 +526,20 @@ router.post('/sync-supabase', validateAll, async (req, res) => {
     console.log('   - email:', email);
     console.log('   - name:', name);
     console.log('   - region:', region);
+    console.log('   - req.body completo:', JSON.stringify(req.body, null, 2));
+    console.log('   - Tipo de supabase_auth_id:', typeof supabase_auth_id);
+    console.log('   - Valor de supabase_auth_id:', supabase_auth_id);
 
     // Validar supabase_auth_id (UUID)
     if (!supabase_auth_id || typeof supabase_auth_id !== 'string') {
+      console.error('❌ [SYNC_SUPABASE] supabase_auth_id faltante o inválido');
+      console.error('   - Tipo recibido:', typeof supabase_auth_id);
+      console.error('   - Valor recibido:', supabase_auth_id);
+      console.error('   - req.body completo:', JSON.stringify(req.body, null, 2));
       return res.status(400).json({
         success: false,
-        error: 'supabase_auth_id es requerido'
+        error: 'supabase_auth_id es requerido',
+        details: `Tipo recibido: ${typeof supabase_auth_id}, Valor: ${supabase_auth_id}`
       });
     }
     supabase_auth_id = String(supabase_auth_id).replace(/[^a-fA-F0-9-]/g, '');
@@ -673,11 +695,45 @@ router.post('/sync-supabase', validateAll, async (req, res) => {
       usuario: newUser
     });
   } catch (error) {
-    console.error('Error sincronizando usuario de Supabase:', error);
-    res.status(500).json({
+    console.error('❌ [SYNC_SUPABASE] Error sincronizando usuario de Supabase:', error);
+    console.error('❌ [SYNC_SUPABASE] Stack:', error.stack);
+    console.error('❌ [SYNC_SUPABASE] Error completo:', JSON.stringify(error, null, 2));
+    
+    // Determinar el código de error HTTP apropiado
+    let statusCode = 500;
+    let errorMessage = 'Error al sincronizar usuario';
+    let errorCode = 'unexpected_failure';
+    
+    // Si es un error de Supabase, obtener detalles
+    if (error.code) {
+      errorCode = error.code;
+      if (error.code === '23505') { // Unique violation
+        statusCode = 409;
+        errorMessage = 'El usuario ya existe en el sistema';
+      } else if (error.code === '23503') { // Foreign key violation
+        statusCode = 400;
+        errorMessage = 'Error de referencia en la base de datos';
+      } else if (error.code === 'PGRST116') { // No rows returned
+        statusCode = 404;
+        errorMessage = 'Usuario no encontrado';
+      }
+    }
+    
+    // Si hay un mensaje de error más específico, usarlo
+    if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // Si hay detalles de error, incluirlos
+    const errorDetails = error.details || error.hint || null;
+    
+    res.status(statusCode).json({
       success: false,
+      code: statusCode,
+      error_code: errorCode,
       error: 'Error al sincronizar usuario',
-      message: error.message
+      msg: errorMessage,
+      ...(errorDetails && { details: errorDetails })
     });
   }
 });

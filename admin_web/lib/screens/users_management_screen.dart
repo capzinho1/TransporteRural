@@ -21,8 +21,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Consumer<AdminProvider>(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Consumer<AdminProvider>(
         builder: (context, adminProvider, child) {
           if (adminProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -32,39 +33,107 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
             return _buildEmptyState();
           }
 
-          return RefreshIndicator(
-            onRefresh: () => adminProvider.loadUsuarios(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Gestión de Usuarios',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showUserDialog(context, null),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Nuevo Usuario'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header moderno
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF1E3A8A).withValues(alpha: 0.08),
+                      const Color(0xFF3B82F6).withValues(alpha: 0.08),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  _buildUsersTable(adminProvider.usuarios),
-                ],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!, width: 1),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF6366F1),
+                                Color(0xFF8B5CF6),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.people_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Gestión de Usuarios',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E3A8A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${adminProvider.usuarios.length} usuarios registrados',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showUserDialog(context, null),
+                      icon: const Icon(Icons.person_add_rounded),
+                      label: const Text('Nuevo Usuario'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+
+              // Lista de usuarios en formato de tarjetas
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => adminProvider.loadUsuarios(),
+                  child: ListView.builder(
+                    itemCount: adminProvider.usuarios.length,
+                    itemBuilder: (context, index) {
+                      final usuario = adminProvider.usuarios[index];
+                      return _buildUserCard(usuario);
+                    },
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -76,127 +145,273 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.people_outline,
-            size: 100,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No hay usuarios registrados',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.people_outline_rounded,
+              size: 80,
+              color: Color(0xFF6366F1),
+            ),
           ),
           const SizedBox(height: 24),
+          const Text(
+            'No hay usuarios registrados',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E3A8A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Agrega tu primer usuario para comenzar',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () => _showUserDialog(context, null),
-            icon: const Icon(Icons.person_add),
+            icon: const Icon(Icons.person_add_rounded),
             label: const Text('Agregar Primer Usuario'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 16,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUsersTable(List<Usuario> usuarios) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
-        columns: const [
-          DataColumn(label: Text('ID')),
-          DataColumn(label: Text('Nombre')),
-          DataColumn(label: Text('Email')),
-          DataColumn(label: Text('Rol')),
-          DataColumn(label: Text('Acciones')),
+  Widget _buildUserCard(Usuario usuario) {
+    final isAdmin = usuario.role == 'company_admin';
+    final canEdit = !isAdmin;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isAdmin ? Colors.orange[200]! : Colors.grey[200]!,
+          width: isAdmin ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
-        rows: usuarios.map((usuario) {
-          return DataRow(
-            cells: [
-              DataCell(Text(usuario.id.toString())),
-              DataCell(Text(usuario.name)),
-              DataCell(Text(usuario.email)),
-              DataCell(_buildRoleChip(usuario.role)),
-              DataCell(
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.edit,
-                        color: usuario.role == 'company_admin'
-                            ? Colors.grey
-                            : Colors.blue,
-                      ),
-                      onPressed: usuario.role == 'company_admin'
-                          ? null
-                          : () => _showUserDialog(context, usuario),
-                      tooltip: usuario.role == 'company_admin'
-                          ? 'No se puede editar al administrador de la empresa'
-                          : 'Editar',
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.delete,
-                        color: usuario.role == 'company_admin'
-                            ? Colors.grey
-                            : Colors.red,
-                      ),
-                      onPressed: usuario.role == 'company_admin'
-                          ? null
-                          : () => _confirmDelete(context, usuario),
-                      tooltip: usuario.role == 'company_admin'
-                          ? 'No se puede eliminar al administrador de la empresa'
-                          : 'Eliminar',
-                    ),
-                  ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        leading: CircleAvatar(
+          radius: 28,
+          backgroundColor: _getRoleColor(usuario.role).withValues(alpha: 0.1),
+          child: Icon(
+            _getRoleIcon(usuario.role),
+            color: _getRoleColor(usuario.role),
+            size: 24,
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                usuario.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E3A8A),
                 ),
               ),
+            ),
+            _buildRoleChip(usuario.role),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.email_rounded, size: 14, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      usuario.email,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              if (isAdmin) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.info_rounded,
+                        size: 12,
+                        color: Colors.orange[700],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Administrador de la empresa',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
-          );
-        }).toList(),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.edit_rounded,
+                color: canEdit ? const Color(0xFF6366F1) : Colors.grey,
+              ),
+              onPressed:
+                  canEdit ? () => _showUserDialog(context, usuario) : null,
+              tooltip:
+                  canEdit ? 'Editar' : 'No se puede editar al administrador',
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.delete_rounded,
+                color: canEdit ? Colors.red : Colors.grey,
+              ),
+              onPressed:
+                  canEdit ? () => _confirmDelete(context, usuario) : null,
+              tooltip: canEdit
+                  ? 'Eliminar'
+                  : 'No se puede eliminar al administrador',
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Color _getRoleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+      case 'company_admin':
+        return const Color(0xFFEF4444);
+      case 'driver':
+        return const Color(0xFF3B82F6);
+      case 'user':
+        return const Color(0xFF10B981);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getRoleIcon(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+      case 'company_admin':
+        return Icons.admin_panel_settings_rounded;
+      case 'driver':
+        return Icons.drive_eta_rounded;
+      case 'user':
+        return Icons.person_rounded;
+      default:
+        return Icons.person_outline_rounded;
+    }
   }
 
   Widget _buildRoleChip(String role) {
-    Color color;
-    IconData icon;
-    String label;
+    final color = _getRoleColor(role);
+    final label = _getRoleLabel(role);
 
-    switch (role.toLowerCase()) {
-      case 'admin':
-        color = Colors.red;
-        icon = Icons.admin_panel_settings;
-        label = 'Administrador';
-        break;
-      case 'driver':
-        color = Colors.blue;
-        icon = Icons.drive_eta;
-        label = 'Conductor';
-        break;
-      case 'user':
-        color = Colors.green;
-        icon = Icons.person;
-        label = 'Usuario';
-        break;
-      default:
-        color = Colors.grey;
-        icon = Icons.person_outline;
-        label = role;
-    }
-
-    return Chip(
-      avatar: Icon(icon, size: 16, color: Colors.white),
-      label: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
-      backgroundColor: color,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _getRoleIcon(role),
+            size: 12,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  String _getRoleLabel(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return 'ADMIN';
+      case 'company_admin':
+        return 'ADMIN EMPRESA';
+      case 'driver':
+        return 'CONDUCTOR';
+      case 'user':
+        return 'USUARIO';
+      default:
+        return role.toUpperCase();
+    }
+  }
+
   void _showUserDialog(BuildContext context, Usuario? usuario) {
-    // Prevenir edición del administrador de la empresa
     if (usuario != null && usuario.role == 'company_admin') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -214,7 +429,27 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(usuario == null ? 'Nuevo Usuario' : 'Editar Usuario'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                color: Color(0xFF6366F1),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(usuario == null ? 'Nuevo Usuario' : 'Editar Usuario'),
+          ],
+        ),
         content: SingleChildScrollView(
           child: SizedBox(
             width: 400,
@@ -226,7 +461,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Nombre Completo *',
                     hintText: 'Juan Pérez',
-                    prefixIcon: Icon(Icons.person),
+                    prefixIcon: Icon(Icons.person_rounded),
+                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -236,22 +472,24 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Email *',
                     hintText: 'usuario@ejemplo.com',
-                    prefixIcon: Icon(Icons.email),
+                    prefixIcon: Icon(Icons.email_rounded),
+                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
+                  initialValue: selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Rol *',
-                    prefixIcon: Icon(Icons.badge),
+                    prefixIcon: Icon(Icons.badge_rounded),
+                    border: OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(
                       value: 'user',
                       child: Row(
                         children: [
-                          Icon(Icons.person, size: 20),
+                          Icon(Icons.person_rounded, size: 20),
                           SizedBox(width: 8),
                           Text('Usuario'),
                         ],
@@ -261,7 +499,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       value: 'driver',
                       child: Row(
                         children: [
-                          Icon(Icons.drive_eta, size: 20),
+                          Icon(Icons.drive_eta_rounded, size: 20),
                           SizedBox(width: 8),
                           Text('Conductor'),
                         ],
@@ -271,7 +509,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       value: 'admin',
                       child: Row(
                         children: [
-                          Icon(Icons.admin_panel_settings, size: 20),
+                          Icon(Icons.admin_panel_settings_rounded, size: 20),
                           SizedBox(width: 8),
                           Text('Administrador'),
                         ],
@@ -295,8 +533,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.isEmpty ||
-                  emailController.text.isEmpty) {
+              if (nameController.text.isEmpty || emailController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Por favor completa todos los campos'),
@@ -348,6 +585,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                 );
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+              foregroundColor: Colors.white,
+            ),
             child: Text(usuario == null ? 'Crear' : 'Actualizar'),
           ),
         ],
@@ -356,7 +597,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   }
 
   void _confirmDelete(BuildContext context, Usuario usuario) {
-    // Prevenir eliminación del administrador de la empresa
     if (usuario.role == 'company_admin') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -370,7 +610,16 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar Eliminación'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_rounded, color: Colors.red),
+            SizedBox(width: 12),
+            Text('Confirmar Eliminación'),
+          ],
+        ),
         content: Text('¿Estás seguro de eliminar el usuario ${usuario.name}?'),
         actions: [
           TextButton(
@@ -381,14 +630,14 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
             onPressed: () async {
               final adminProvider =
                   Provider.of<AdminProvider>(context, listen: false);
-              
-              // Verificar nuevamente antes de eliminar
+
               if (usuario.role == 'company_admin') {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('No se puede eliminar al administrador de la empresa'),
+                      content: Text(
+                          'No se puede eliminar al administrador de la empresa'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -419,4 +668,3 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     );
   }
 }
-

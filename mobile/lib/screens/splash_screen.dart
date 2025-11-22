@@ -50,7 +50,10 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (mounted) {
-      // Verificar si hay una sesión activa de Supabase Auth
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+      
+      // 1. Verificar si hay una sesión activa de Supabase Auth
       // (por ejemplo, después de un redirect de OAuth)
       // IMPORTANTE: Solo procesar sesiones si hay un usuario válido y la sesión no está expirada
       try {
@@ -80,11 +83,9 @@ class _SplashScreenState extends State<SplashScreen>
                 final usuario = await AuthService.processExistingSession();
                 
                 // Usuario procesado exitosamente, redirigir
-                final appProvider = Provider.of<AppProvider>(context, listen: false);
                 appProvider.setCurrentUser(usuario);
                 
                 // Cargar configuraciones del usuario
-                final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
                 await settingsProvider.loadUserSettings(usuario.id);
                 
                 if (mounted) {
@@ -111,10 +112,51 @@ class _SplashScreenState extends State<SplashScreen>
         print('⚠️ [SPLASH] Error al verificar sesión: $e');
       }
       
-      // No hay sesión activa, ir al login
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      // 2. Si no hay sesión de Supabase, intentar cargar sesión guardada del sistema tradicional
+      try {
+        print('🔄 [SPLASH] Verificando sesión guardada...');
+        final savedUsuario = await appProvider.loadSavedUserSession();
+        
+        if (savedUsuario != null) {
+          // Verificar que la sesión guardada sea válida
+          final isValid = await appProvider.validateSavedSession(savedUsuario);
+          
+          if (isValid) {
+            print('✅ [SPLASH] Sesión guardada válida encontrada, restaurando...');
+            
+            // Restaurar usuario
+            appProvider.setCurrentUser(savedUsuario);
+            
+            // Cargar configuraciones del usuario
+            await settingsProvider.loadUserSettings(savedUsuario.id);
+            
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => savedUsuario.role == 'driver' 
+                    ? const DriverScreen() 
+                    : const HomeScreen(),
+                ),
+              );
+              return;
+            }
+          } else {
+            // Sesión guardada no es válida, limpiarla
+            print('⚠️ [SPLASH] Sesión guardada no válida, limpiando...');
+            appProvider.logout();
+          }
+        }
+      } catch (e) {
+        // Error al cargar sesión guardada, continuar al login
+        print('⚠️ [SPLASH] Error al cargar sesión guardada: $e');
+      }
+      
+      // 3. No hay sesión activa ni guardada, ir al login
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 

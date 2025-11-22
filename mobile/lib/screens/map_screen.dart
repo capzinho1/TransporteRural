@@ -267,7 +267,6 @@ class _MapScreenState extends State<MapScreen> {
       return routeId;
     }
   }
-
   String _getCompanyName(int? companyId, List<BusLocation> buses) {
     if (companyId == null) return '';
     try {
@@ -812,6 +811,34 @@ class BusDetailsSheet extends StatelessWidget {
     this.onReportProblem,
   });
 
+  // Helper para obtener el nombre de la ruta de un bus (dentro del StatelessWidget)
+  String _getRouteNameForBusInSheet(BusLocation busLocation, BuildContext context) {
+    // Obtener las rutas del provider
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final routes = appProvider.rutas;
+    
+    // 1. Priorizar nombreRuta si está disponible
+    if (busLocation.nombreRuta != null && busLocation.nombreRuta!.isNotEmpty) {
+      return busLocation.nombreRuta!;
+    }
+    
+    // 2. Buscar en la lista de rutas usando routeId
+    if (busLocation.routeId != null && busLocation.routeId!.isNotEmpty) {
+      try {
+        final route = routes.firstWhere(
+          (r) => r.routeId == busLocation.routeId,
+        );
+        return route.name;
+      } catch (e) {
+        // Si no se encuentra la ruta, usar el routeId como fallback
+        return busLocation.routeId!;
+      }
+    }
+    
+    // 3. Fallback
+    return 'Sin asignar';
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -932,7 +959,10 @@ class BusDetailsSheet extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildDetailRow('Ruta', busLocation.routeId ?? 'N/A'),
+                    _buildDetailRow(
+                      'Ruta',
+                      _getRouteNameForBusInSheet(busLocation, context),
+                    ),
                     _buildDetailRow(
                       'Conductor',
                       busLocation.driverName ??

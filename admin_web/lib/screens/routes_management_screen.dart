@@ -5,6 +5,7 @@ import '../models/ruta.dart';
 import '../models/usuario.dart';
 import '../models/bus.dart';
 import '../widgets/route_dialog.dart';
+import '../services/assignment_service.dart';
 
 class RoutesManagementScreen extends StatefulWidget {
   const RoutesManagementScreen({super.key});
@@ -31,39 +32,24 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     ]);
   }
 
-  // Obtener conductor asignado a una ruta
+  // Obtener conductor asignado a una ruta (usando el servicio)
   Usuario? _getAssignedDriver(String routeId, AdminProvider provider) {
-    final bus = provider.buses.firstWhere(
-      (b) => b.routeId == routeId && b.driverId != null,
-      orElse: () => BusLocation(
-        busId: '',
-        latitude: 0,
-        longitude: 0,
-        status: 'inactive',
-      ),
+    return AssignmentService.getDriverAssignedToRoute(
+      routeId,
+      provider.buses,
+      provider.usuarios,
     );
-
-    if (bus.driverId != null) {
-      try {
-        return provider.usuarios.firstWhere(
-          (u) => u.id == bus.driverId && u.role == 'driver',
-        );
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
   }
 
-  // Obtener bus asignado a una ruta
+  // Obtener buses asignados a una ruta (puede haber múltiples)
+  List<BusLocation> _getAssignedBuses(String routeId, AdminProvider provider) {
+    return AssignmentService.getBusesAssignedToRoute(routeId, provider.buses);
+  }
+
+  // Obtener el primer bus asignado (para compatibilidad con código existente)
   BusLocation? _getAssignedBus(String routeId, AdminProvider provider) {
-    try {
-      return provider.buses.firstWhere(
-        (b) => b.routeId == routeId,
-      );
-    } catch (e) {
-      return null;
-    }
+    final buses = _getAssignedBuses(routeId, provider);
+    return buses.isNotEmpty ? buses.first : null;
   }
 
   @override
@@ -266,25 +252,49 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                 const Divider(),
 
                 // Asignaciones
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _buildAssignmentChip(
-                        'Conductor',
-                        assignedDriver?.name ?? 'Sin asignar',
-                        assignedDriver != null ? Colors.green : Colors.grey,
-                        Icons.person,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildAssignmentChip(
+                            'Conductor',
+                            assignedDriver?.name ?? 'Sin asignar',
+                            assignedDriver != null ? Colors.green : Colors.grey,
+                            Icons.person,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildAssignmentChip(
+                            'Buses',
+                            '${_getAssignedBuses(ruta.routeId, adminProvider).length} asignado(s)',
+                            assignedBus != null ? Colors.blue : Colors.grey,
+                            Icons.directions_bus,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildAssignmentChip(
-                        'Bus',
-                        assignedBus?.busId ?? 'Sin asignar',
-                        assignedBus != null ? Colors.blue : Colors.grey,
-                        Icons.directions_bus,
+                    // Mostrar lista de buses si hay múltiples
+                    if (_getAssignedBuses(ruta.routeId, adminProvider).length >
+                        0) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: _getAssignedBuses(ruta.routeId, adminProvider)
+                            .map((bus) => Chip(
+                                  label: Text(
+                                    bus.busId,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  backgroundColor: Colors.blue[50],
+                                  padding: EdgeInsets.zero,
+                                ))
+                            .toList(),
                       ),
-                    ),
+                    ],
                   ],
                 ),
 
@@ -534,7 +544,6 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     }
   }
 
-
   void _showAssignmentDialog(
       BuildContext context, Ruta ruta, AdminProvider adminProvider) {
     final conductores =
@@ -558,12 +567,13 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Seleccionar conductor
+                  // Seleccionar conductor (con indicadores visuales)
                   DropdownButtonFormField<int?>(
-                    value: selectedDriverId,
+                    initialValue: selectedDriverId,
                     decoration: const InputDecoration(
                       labelText: 'Conductor',
-                      prefixIcon: Icon(Icons.person),
+                      prefixIcon: Icon(Icons.person_rounded),
+                      border: OutlineInputBorder(),
                     ),
                     items: [
                       const DropdownMenuItem<int?>(
@@ -571,25 +581,88 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                         child: Text('Sin conductor'),
                       ),
                       ...conductores.map((conductor) {
+                        final isAssigned = !AssignmentService.isDriverAvailable(
+                          conductor.id,
+                          adminProvider.buses,
+                        );
+                        final assignedBus =
+                            AssignmentService.getBusAssignedToDriver(
+                          conductor.id,
+                          adminProvider.buses,
+                        );
+                        final isAssignedToOtherRoute = assignedBus != null &&
+                            assignedBus.routeId != null &&
+                            assignedBus.routeId != ruta.routeId;
+
                         return DropdownMenuItem<int?>(
                           value: conductor.id,
-                          child: Text('${conductor.name} (${conductor.email})'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    conductor.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: isAssignedToOtherRoute
+                                          ? Colors.orange[700]
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  if (isAssignedToOtherRoute)
+                                    Text(
+                                      'Ya asignado',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.orange[700],
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 8),
+                              if (isAssigned)
+                                Icon(
+                                  Icons.warning_rounded,
+                                  size: 16,
+                                  color: isAssignedToOtherRoute
+                                      ? Colors.orange
+                                      : Colors.grey,
+                                ),
+                            ],
+                          ),
                         );
                       }),
                     ],
                     onChanged: (value) {
                       setState(() {
                         selectedDriverId = value;
+                        // Si el conductor ya tiene un bus, sugerir ese bus
+                        if (value != null) {
+                          final assignedBus =
+                              AssignmentService.getBusAssignedToDriver(
+                            value,
+                            adminProvider.buses,
+                          );
+                          if (assignedBus != null) {
+                            selectedBusId = assignedBus.busId;
+                          }
+                        }
                       });
                     },
                   ),
                   const SizedBox(height: 16),
-                  // Seleccionar bus
+                  // Seleccionar bus (con indicadores visuales)
                   DropdownButtonFormField<String?>(
-                    value: selectedBusId,
+                    initialValue: selectedBusId,
                     decoration: const InputDecoration(
                       labelText: 'Bus',
-                      prefixIcon: Icon(Icons.directions_bus),
+                      prefixIcon: Icon(Icons.directions_bus_rounded),
+                      border: OutlineInputBorder(),
                     ),
                     items: [
                       const DropdownMenuItem<String?>(
@@ -597,9 +670,64 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
                         child: Text('Sin bus'),
                       ),
                       ...buses.map((bus) {
+                        final isAssignedToOtherRoute = bus.routeId != null &&
+                            bus.routeId!.isNotEmpty &&
+                            bus.routeId != ruta.routeId;
+                        final isAvailable =
+                            AssignmentService.isBusAvailable(bus);
+
                         return DropdownMenuItem<String?>(
                           value: bus.busId,
-                          child: Text('${bus.busId} - ${bus.status}'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    bus.busId,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: isAssignedToOtherRoute
+                                          ? Colors.orange[700]
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    isAssignedToOtherRoute
+                                        ? 'Ya asignado'
+                                        : isAvailable
+                                            ? 'Disponible'
+                                            : bus.status,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isAssignedToOtherRoute
+                                          ? Colors.orange[700]
+                                          : Colors.grey[600],
+                                      fontStyle: isAssignedToOtherRoute
+                                          ? FontStyle.italic
+                                          : FontStyle.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 8),
+                              if (isAssignedToOtherRoute)
+                                Icon(
+                                  Icons.warning_rounded,
+                                  size: 16,
+                                  color: Colors.orange,
+                                )
+                              else if (isAvailable)
+                                Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 16,
+                                  color: Colors.green,
+                                ),
+                            ],
+                          ),
                         );
                       }),
                     ],
@@ -644,103 +772,310 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
     AdminProvider adminProvider,
   ) async {
     try {
-      // Buscar el bus seleccionado
+      // Recargar datos antes de validar para asegurar que están actualizados
+      await adminProvider.loadBuses();
+
+      // Obtener el bus seleccionado (con datos actualizados)
       BusLocation? bus;
       if (busId != null) {
         try {
           bus = adminProvider.buses.firstWhere((b) => b.busId == busId);
         } catch (e) {
-          // Bus no encontrado
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('El bus seleccionado no existe'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
         }
       }
 
-      // Lógica de asignación:
-      // 1. Si hay bus seleccionado, actualizarlo con conductor y ruta
-      // 2. Si solo hay conductor, asignarlo al bus existente de ese conductor o crear nuevo bus
-      // 3. Si se desasignan ambos, limpiar el bus
+      // Obtener company_id del usuario actual
+      final currentCompanyId = adminProvider.currentUser?.companyId;
 
-      if (bus != null && bus.id != null) {
-        // Caso 1: Hay bus seleccionado
-        final updatedBus = bus.copyWith(
-          routeId: driverId != null
-              ? ruta.routeId
-              : (busId != null ? null : bus.routeId),
-          driverId: driverId,
-          status: driverId != null ? 'inactive' : bus.status,
+      // Debug: Verificar datos antes de validar
+      print('🔍 [DEBUG] Validando asignación:');
+      print(
+          '  - Bus: ${bus?.busId} (driverId actual: ${bus?.driverId}, routeId: ${bus?.routeId})');
+      print('  - Nuevo driverId: $driverId');
+      print('  - Ruta destino: ${ruta.routeId}');
+
+      // Validar la asignación completa usando el servicio
+      final validation = AssignmentService.validateFullAssignment(
+        bus: bus,
+        driverId: driverId,
+        route: ruta,
+        allBuses: adminProvider.buses,
+        allUsers: adminProvider.usuarios,
+        currentCompanyId: currentCompanyId,
+      );
+
+      // Debug: Verificar resultado de validación
+      print('🔍 [DEBUG] Resultado de validación:');
+      print('  - isValid: ${validation.isValid}');
+      print('  - warnings: ${validation.warnings.length}');
+      validation.warnings.forEach((w) => print('    - $w'));
+
+      // Si hay errores de validación, mostrar y salir
+      if (!validation.isValid) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(validation.errorMessage ?? 'Error de validación'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
-        await adminProvider.apiService.updateBusLocation(bus.id!, updatedBus);
-      } else if (driverId != null) {
-        // Caso 2: Solo hay conductor seleccionado (sin bus)
-        // Buscar si el conductor ya tiene un bus asignado
-        BusLocation? existingBus;
-        try {
-          existingBus = adminProvider.buses.firstWhere(
-            (b) => b.driverId == driverId,
-          );
-        } catch (e) {
-          // El conductor no tiene bus asignado
+        return;
+      }
+
+      // Si hay advertencias, mostrar diálogo de confirmación
+      print(
+          '🔍 [DEBUG] Verificando advertencias: ${validation.warnings.length} advertencias encontradas');
+      if (validation.warnings.isNotEmpty) {
+        print(
+            '⚠️ [DEBUG] Mostrando diálogo de advertencias con ${validation.warnings.length} advertencias');
+        print('⚠️ [DEBUG] Advertencias:');
+        validation.warnings.forEach((w) => print('    - $w'));
+
+        if (!context.mounted) return;
+        final shouldContinue = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning_rounded, color: Colors.orange[700]),
+                const SizedBox(width: 12),
+                const Text('Advertencias'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Se realizarán los siguientes cambios:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                ...validation.warnings.map((warning) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 16, color: Colors.orange[700]),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(warning)),
+                        ],
+                      ),
+                    )),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Continuar'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldContinue != true) {
+          return; // Usuario canceló
+        }
+      }
+
+      // Lógica de asignación mejorada
+      BusLocation? targetBus;
+
+      // Caso 1: Hay bus seleccionado explícitamente
+      if (bus != null && bus.id != null) {
+        targetBus = bus;
+
+        // Si el bus ya está asignado a otra ruta, desasignarlo primero
+        if (bus.routeId != null && bus.routeId != ruta.routeId) {
+          // Desasignar el bus de su ruta anterior será manejado por la actualización
         }
 
-        if (existingBus != null && existingBus.id != null) {
-          // Actualizar el bus existente del conductor
-          final updatedBus = existingBus.copyWith(
-            routeId: ruta.routeId,
-            driverId: driverId,
+        // Si el conductor ya tiene un bus diferente, desasignarlo primero
+        if (driverId != null) {
+          final existingDriverBus = AssignmentService.getBusAssignedToDriver(
+            driverId,
+            adminProvider.buses,
           );
-          await adminProvider.apiService
-              .updateBusLocation(existingBus.id!, updatedBus);
-        } else {
-          // El conductor no tiene bus - buscar uno disponible o informar al usuario
-          BusLocation? availableBus;
-          try {
-            availableBus = adminProvider.buses.firstWhere(
-              (b) =>
-                  (b.routeId == null || b.routeId!.isEmpty) &&
-                  b.driverId == null,
+          if (existingDriverBus != null &&
+              existingDriverBus.id != bus.id &&
+              existingDriverBus.id != null) {
+            // Desasignar el conductor de su bus anterior
+            await AssignmentService.desassignDriverFromBus(
+              driverId,
+              adminProvider.buses,
+              adminProvider.apiService,
             );
-          } catch (e) {
-            // No hay buses disponibles
           }
+        }
 
-          if (availableBus != null && availableBus.id != null) {
-            // Asignar bus disponible
-            final updatedBus = availableBus.copyWith(
-              routeId: ruta.routeId,
-              driverId: driverId,
-            );
-            await adminProvider.apiService
-                .updateBusLocation(availableBus.id!, updatedBus);
-          } else {
-            // No hay buses disponibles - informar al usuario
+        // Preparar actualización del bus
+        final updateData = AssignmentService.prepareAssignmentUpdate(
+          bus: bus,
+          driverId: driverId,
+          routeId: ruta.routeId, // Siempre asignar la ruta si hay bus
+        );
+
+        // Sincronizar nombreRuta con el nombre de la ruta
+        updateData['nombre_ruta'] = ruta.name;
+
+        await adminProvider.apiService
+            .updateBusLocationDirect(bus.id!, updateData);
+      }
+      // Caso 2: Solo hay conductor seleccionado (sin bus explícito)
+      else if (driverId != null) {
+        // Buscar si el conductor ya tiene un bus asignado
+        final existingDriverBus = AssignmentService.getBusAssignedToDriver(
+          driverId,
+          adminProvider.buses,
+        );
+
+        if (existingDriverBus != null && existingDriverBus.id != null) {
+          // Actualizar el bus existente del conductor
+          targetBus = existingDriverBus;
+          final updateData = AssignmentService.prepareAssignmentUpdate(
+            bus: existingDriverBus,
+            driverId: driverId,
+            routeId: ruta.routeId,
+          );
+
+          // Sincronizar nombreRuta con el nombre de la ruta
+          updateData['nombre_ruta'] = ruta.name;
+
+          await adminProvider.apiService.updateBusLocationDirect(
+            existingDriverBus.id!,
+            updateData,
+          );
+        } else {
+          // El conductor no tiene bus - buscar uno disponible
+          final availableBuses = adminProvider.buses
+              .where(
+                (b) => AssignmentService.isBusAvailable(b),
+              )
+              .toList();
+
+          if (availableBuses.isEmpty) {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                    'No hay buses disponibles. Por favor crea un bus primero.'),
+                    'No hay buses disponibles. Por favor crea un bus primero o selecciona uno existente.'),
                 backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
               ),
             );
             return;
           }
+
+          // Usar el primer bus disponible
+          targetBus = availableBuses.first;
+          final updateData = AssignmentService.prepareAssignmentUpdate(
+            bus: targetBus,
+            driverId: driverId,
+            routeId: ruta.routeId,
+          );
+
+          // Sincronizar nombreRuta con el nombre de la ruta
+          updateData['nombre_ruta'] = ruta.name;
+
+          await adminProvider.apiService.updateBusLocationDirect(
+            targetBus.id!,
+            updateData,
+          );
         }
-      } else if (driverId == null && bus != null && bus.id != null) {
-        // Caso 3: Desasignar conductor (pero mantener el bus si estaba asignado a esta ruta)
-        final updatedBus = bus.copyWith(
-          routeId: bus.routeId == ruta.routeId ? null : bus.routeId,
-          driverId: null,
+      }
+      // Caso 3: Solo desasignar (sin bus ni conductor)
+      else if (busId == null && driverId == null) {
+        print('🔍 [DEBUG] Caso 3: Desasignando todo');
+
+        // Si hay un bus actualmente asignado a esta ruta, desasignarlo completamente
+        final currentBus = AssignmentService.getBusAssignedToRoute(
+          ruta.routeId,
+          adminProvider.buses,
         );
-        await adminProvider.apiService.updateBusLocation(bus.id!, updatedBus);
+
+        if (currentBus != null && currentBus.id != null) {
+          targetBus = currentBus;
+          print(
+              '🔍 [DEBUG] Desasignando bus ${currentBus.busId} (id: ${currentBus.id})');
+          print('  - Conductor actual: ${currentBus.driverId}');
+          print('  - Ruta actual: ${currentBus.routeId}');
+          print('  - Estado actual: ${currentBus.status}');
+
+          // Desasignar explícitamente: pasar null para route_id y driver_id
+          final updateData = {
+            'route_id': null,
+            'driver_id': null,
+            'nombre_ruta': null, // Limpiar nombreRuta al desasignar
+            'status': 'inactive',
+          };
+
+          print('🔍 [DEBUG] updateData para desasignación: $updateData');
+
+          try {
+            await adminProvider.apiService.updateBusLocationDirect(
+              currentBus.id!,
+              updateData,
+            );
+            print('✅ [DEBUG] Bus desasignado exitosamente en backend');
+          } catch (e) {
+            print('❌ [DEBUG] Error al desasignar bus: $e');
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error al desasignar: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        } else {
+          print(
+              '⚠️ [DEBUG] No se encontró bus asignado a la ruta ${ruta.routeId}');
+        }
       }
 
-      // Recargar datos
-      await _loadData();
+      // Recargar TODOS los datos para asegurar sincronización
+      await Future.wait([
+        adminProvider.loadBuses(),
+        adminProvider.loadRutas(),
+        adminProvider.loadUsuarios(),
+      ]);
+
+      print('✅ [DEBUG] Datos recargados después de desasignación/asignación');
 
       if (!context.mounted) return;
       Navigator.pop(context);
+
+      // Determinar mensaje apropiado según la acción
+      final isUnassignment = busId == null && driverId == null;
+      final message = isUnassignment
+          ? 'Desasignación completada exitosamente'
+          : 'Asignación guardada exitosamente';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Asignación guardada exitosamente'),
+        SnackBar(
+          content: Text(message),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
         ),
       );
     } catch (e) {
@@ -750,43 +1085,76 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
         SnackBar(
           content: Text('Error al guardar asignación: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
   }
 
-  void _confirmDelete(BuildContext context, Ruta ruta) {
-    final scaffoldContext = context;
-    showDialog(
+  void _confirmDelete(BuildContext context, Ruta ruta) async {
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+
+    // Validar asignaciones antes de eliminar
+    final busesAsignados = AssignmentService.getBusesAssignedToRoute(
+      ruta.routeId,
+      adminProvider.buses,
+    );
+
+    if (busesAsignados.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('No se puede eliminar'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'La ruta "${ruta.name}" tiene ${busesAsignados.length} bus(es) asignado(s):',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...busesAsignados.map((bus) => Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 4),
+                    child: Text('• ${bus.busId}'),
+                  )),
+              const SizedBox(height: 12),
+              const Text(
+                'Por favor desasigna los buses antes de eliminar la ruta.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Si no hay asignaciones, proceder con la eliminación
+    final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Confirmar Eliminación'),
         content: Text('¿Estás seguro de eliminar la ruta "${ruta.name}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              final adminProvider =
-                  Provider.of<AdminProvider>(dialogContext, listen: false);
-              final success = await adminProvider.deleteRuta(ruta.routeId);
-
-              if (!success) return;
-              if (!dialogContext.mounted) return;
-
-              Navigator.pop(dialogContext);
-              await _loadData();
-
-              if (!scaffoldContext.mounted) return;
-              ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-                const SnackBar(
-                  content: Text('Ruta eliminada exitosamente'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
@@ -796,5 +1164,43 @@ class _RoutesManagementScreenState extends State<RoutesManagementScreen> {
         ],
       ),
     );
+
+    if (shouldDelete != true) return;
+
+    // Intentar eliminar (el backend también validará)
+    try {
+      final success = await adminProvider.deleteRuta(ruta.routeId);
+
+      if (!context.mounted) return;
+
+      if (success) {
+        await _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ruta eliminada exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              adminProvider.error ?? 'Error al eliminar la ruta',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/bus.dart';
@@ -9,7 +10,7 @@ import '../models/rating.dart';
 import '../models/user_report.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = 'http://192.168.56.1:3000/api';
   
   // ID del usuario actual para autenticación
   int? _currentUserId;
@@ -56,26 +57,29 @@ class ApiService {
 
       http.Response response;
 
+      // Configurar timeout para las peticiones
+      final timeoutDuration = const Duration(seconds: 30);
+
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: requestHeaders);
+          response = await http.get(url, headers: requestHeaders).timeout(timeoutDuration);
           break;
         case 'POST':
           response = await http.post(
             url,
             headers: requestHeaders,
             body: body != null ? jsonEncode(body) : null,
-          );
+          ).timeout(timeoutDuration);
           break;
         case 'PUT':
           response = await http.put(
             url,
             headers: requestHeaders,
             body: body != null ? jsonEncode(body) : null,
-          );
+          ).timeout(timeoutDuration);
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: requestHeaders);
+          response = await http.delete(url, headers: requestHeaders).timeout(timeoutDuration);
           break;
         default:
           throw Exception('Método HTTP no soportado: $method');
@@ -116,6 +120,15 @@ class ApiService {
           throw Exception('Error HTTP ${response.statusCode}: ${response.body}');
         }
       }
+    } on http.ClientException catch (e) {
+      // Error de conexión (red, timeout, etc.)
+      print('❌ [API_SERVICE] Error de conexión en $endpoint: $e');
+      print('❌ [API_SERVICE] URL intentada: $baseUrl$endpoint');
+      throw Exception('Error de conexión: No se pudo conectar al servidor. Verifica que el backend esté corriendo y que tu dispositivo esté en la misma red WiFi.');
+    } on TimeoutException catch (e) {
+      // Timeout
+      print('❌ [API_SERVICE] Timeout en $endpoint: $e');
+      throw Exception('Timeout: El servidor no respondió a tiempo. Verifica tu conexión a internet.');
     } catch (e) {
       // Si el error ya tiene un mensaje específico, no agregar "Error en petición API"
       if (e.toString().contains('Exception: ')) {
@@ -246,24 +259,30 @@ class ApiService {
     required String supabaseAuthId,
     required String email,
     required String name,
-    required String region,
+    String? region,
   }) async {
     print('📡 [API_SERVICE] Sincronizando usuario de Supabase Auth...');
     print('   - supabase_auth_id: $supabaseAuthId');
     print('   - email: $email');
     print('   - name: $name');
-    print('   - region: $region');
+    print('   - region: ${region ?? "null"}');
     
     try {
+      final body = <String, dynamic>{
+        'supabase_auth_id': supabaseAuthId,
+        'email': email,
+        'name': name,
+      };
+      
+      // Solo incluir region si no es null
+      if (region != null && region.trim().isNotEmpty) {
+        body['region'] = region;
+      }
+      
       final response = await _makeRequest(
         'POST',
         '/users/sync-supabase',
-        body: {
-          'supabase_auth_id': supabaseAuthId,
-          'email': email,
-          'name': name,
-          'region': region,
-        },
+        body: body,
       );
       
       print('✅ [API_SERVICE] Usuario sincronizado exitosamente');
@@ -288,6 +307,95 @@ class ApiService {
       return response;
     } catch (e) {
       print('❌ [API_SERVICE] Error al obtener usuario por Supabase Auth ID: $e');
+      rethrow;
+    }
+  }
+
+  // === PROXY DE AUTENTICACIÓN (para cuando Supabase está bloqueado) ===
+  /// Registrar usuario usando proxy del backend
+  Future<Map<String, dynamic>> proxySignUp({
+    required String email,
+    required String password,
+    required String name,
+    required String region,
+  }) async {
+    print('📡 [API_SERVICE] Registrando usuario vía proxy...');
+    try {
+      final response = await _makeRequest(
+        'POST',
+        '/auth/signup',
+        body: {
+          'email': email,
+          'password': password,
+          'name': name,
+          'region': region,
+        },
+      );
+      print('✅ [API_SERVICE] Usuario registrado vía proxy exitosamente');
+      return response;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al registrar usuario vía proxy: $e');
+      rethrow;
+    }
+  }
+
+  /// Iniciar sesión usando proxy del backend
+  Future<Map<String, dynamic>> proxySignIn({
+    required String email,
+    required String password,
+  }) async {
+    print('📡 [API_SERVICE] Iniciando sesión vía proxy...');
+    try {
+      final response = await _makeRequest(
+        'POST',
+        '/auth/signin',
+        body: {
+          'email': email,
+          'password': password,
+        },
+      );
+      print('✅ [API_SERVICE] Sesión iniciada vía proxy exitosamente');
+      return response;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al iniciar sesión vía proxy: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtener sesión actual usando proxy del backend
+  Future<Map<String, dynamic>> proxyGetSession(String accessToken) async {
+    print('📡 [API_SERVICE] Obteniendo sesión vía proxy...');
+    try {
+      final response = await _makeRequest(
+        'GET',
+        '/auth/session',
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      );
+      print('✅ [API_SERVICE] Sesión obtenida vía proxy exitosamente');
+      return response;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al obtener sesión vía proxy: $e');
+      rethrow;
+    }
+  }
+
+  /// Cerrar sesión usando proxy del backend
+  Future<void> proxySignOut(String? accessToken) async {
+    print('📡 [API_SERVICE] Cerrando sesión vía proxy...');
+    try {
+      final headers = accessToken != null 
+        ? <String, String>{'Authorization': 'Bearer $accessToken'}
+        : <String, String>{};
+      await _makeRequest(
+        'POST',
+        '/auth/signout',
+        headers: headers,
+      );
+      print('✅ [API_SERVICE] Sesión cerrada vía proxy exitosamente');
+    } catch (e) {
+      print('❌ [API_SERVICE] Error al cerrar sesión vía proxy: $e');
       rethrow;
     }
   }
@@ -414,5 +522,59 @@ class ApiService {
   // === HEALTH CHECK ===
   Future<Map<String, dynamic>> healthCheck() async {
     return await _makeRequest('GET', '/health');
+  }
+
+  // === OAUTH GOOGLE ===
+  /// Obtener URL OAuth de Google desde el proxy del backend
+  Future<Map<String, dynamic>> getGoogleOAuthUrl({
+    required String platform, // 'web' o 'mobile'
+    String? finalRedirectTo,
+  }) async {
+    print('📡 [API_SERVICE] Obteniendo URL OAuth de Google');
+    print('📡 [API_SERVICE] Platform: $platform');
+    print('📡 [API_SERVICE] Final redirectTo: $finalRedirectTo');
+    
+    final redirectTo = finalRedirectTo ?? 
+      (platform == 'web' ? 'http://localhost:8080/' : 'com.georu.app://login-callback');
+    
+    final response = await _makeRequest(
+      'GET',
+      '/auth/oauth/google/authorize?platform=$platform&finalRedirectTo=${Uri.encodeComponent(redirectTo)}',
+    );
+    
+    print('✅ [API_SERVICE] URL OAuth obtenida exitosamente');
+    return response;
+  }
+
+  // === BÚSQUEDA FUZZY ===
+  /// Buscar rutas y buses por nombre (búsqueda tolerante a errores)
+  Future<Map<String, dynamic>> searchRoutesAndBuses({
+    required String query,
+    String? tipo, // 'ida' o 'vuelta' (opcional, para filtrar por dirección)
+    int limit = 20,
+  }) async {
+    print('🔍 [API_SERVICE] Búsqueda fuzzy iniciada');
+    print('🔍 [API_SERVICE] Query: $query');
+    print('🔍 [API_SERVICE] Tipo: $tipo');
+    
+    try {
+      String endpoint = '/routes/search/fuzzy?query=${Uri.encodeComponent(query)}&limit=$limit';
+      if (tipo != null && tipo.isNotEmpty) {
+        endpoint += '&tipo=${Uri.encodeComponent(tipo)}';
+      }
+      
+      final response = await _makeRequest('GET', endpoint);
+      
+      print('✅ [API_SERVICE] Búsqueda completada');
+      if (response['data'] != null) {
+        print('   📋 Rutas encontradas: ${response['data']['routes']?.length ?? 0}');
+        print('   🚌 Buses encontrados: ${response['data']['buses']?.length ?? 0}');
+      }
+      
+      return response;
+    } catch (e) {
+      print('❌ [API_SERVICE] Error en búsqueda fuzzy: $e');
+      rethrow;
+    }
   }
 }

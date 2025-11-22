@@ -118,7 +118,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/bus-locations - Crear nuevo bus
 router.post('/', async (req, res) => {
   try {
-    const { bus_id, route_id, driver_id, latitude, longitude, status, company_id } = req.body;
+    const { bus_id, route_id, nombre_ruta, driver_id, latitude, longitude, status, company_id } = req.body;
     
     // Obtener usuario y asignar company_id automáticamente si es company_admin
     const user = await getUserFromRequest(req);
@@ -133,6 +133,7 @@ router.post('/', async (req, res) => {
         {
           bus_id,
           route_id: route_id || null,
+          nombre_ruta: nombre_ruta || null,
           driver_id: driver_id || null,
           latitude,
           longitude,
@@ -164,7 +165,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { bus_id, route_id, driver_id, latitude, longitude, status } = req.body;
+    const { bus_id, route_id, nombre_ruta, driver_id, latitude, longitude, status } = req.body;
     
     // Obtener el bus existente para preservar company_id y otros datos
     const { data: existingBus, error: fetchError } = await supabase
@@ -202,12 +203,65 @@ router.put('/:id', async (req, res) => {
     };
     
     // Solo actualizar campos que se proporcionaron explícitamente
+    // NOTA: null !== undefined es true, así que cuando enviamos null explícitamente, se actualizará
     if (bus_id !== undefined) updateData.bus_id = bus_id;
-    if (route_id !== undefined) updateData.route_id = route_id;
-    if (driver_id !== undefined) updateData.driver_id = driver_id;
+    if (route_id !== undefined) {
+      updateData.route_id = route_id === null ? null : route_id;
+      
+      // Sincronizar nombre_ruta con el nombre de la ruta cuando se asigna/desasigna
+      if (route_id === null) {
+        // Si se desasigna la ruta, limpiar nombre_ruta
+        updateData.nombre_ruta = null;
+      } else {
+        // Si se asigna una ruta, obtener su nombre y sincronizarlo
+        const { data: routeData, error: routeError } = await supabase
+          .from('routes')
+          .select('name')
+          .eq('route_id', route_id)
+          .single();
+        
+        if (!routeError && routeData) {
+          updateData.nombre_ruta = routeData.name;
+        }
+      }
+    }
+    if (nombre_ruta !== undefined) updateData.nombre_ruta = nombre_ruta === null ? null : nombre_ruta;
+    if (driver_id !== undefined) {
+      const previousDriverId = existingBus.driver_id;
+      updateData.driver_id = driver_id === null ? null : driver_id;
+      
+      // Actualizar estado del conductor cuando se asigna/desasigna
+      if (previousDriverId !== driver_id) {
+        // Si había un conductor anterior y se está cambiando, actualizar su estado
+        if (previousDriverId !== null) {
+          await supabase
+            .from('users')
+            .update({ driver_status: 'disponible' })
+            .eq('id', previousDriverId);
+        }
+        
+        // Si se asigna un nuevo conductor, actualizar su estado
+        if (driver_id !== null) {
+          await supabase
+            .from('users')
+            .update({ driver_status: 'en_ruta' })
+            .eq('id', driver_id);
+        }
+      }
+    }
     if (latitude !== undefined) updateData.latitude = latitude;
     if (longitude !== undefined) updateData.longitude = longitude;
     if (status !== undefined) updateData.status = status;
+    
+    // Log para debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 [BACKEND] Actualizando bus:', {
+        id,
+        updateData,
+        driver_id_original: driver_id,
+        route_id_original: route_id,
+      });
+    }
     
     // Preservar company_id si existe (no se debe cambiar desde la actualización)
     if (existingBus.company_id) {

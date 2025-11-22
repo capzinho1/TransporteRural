@@ -94,50 +94,120 @@ class TransporteRuralApp extends StatelessWidget {
             theme: ThemeData(
               primarySwatch: Colors.green,
               primaryColor: const Color(0xFF2E7D32),
+              scaffoldBackgroundColor: const Color(0xFFF5F5F5),
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF2E7D32),
                 brightness: Brightness.light,
+                primary: const Color(0xFF2E7D32),
+                secondary: const Color(0xFF4CAF50),
+                surface: Colors.white,
+                error: const Color(0xFFD32F2F),
+                onPrimary: Colors.white,
+                onSecondary: Colors.white,
+                onSurface: const Color(0xFF212121),
+                onError: Colors.white,
               ),
               useMaterial3: true,
+              cardTheme: CardThemeData(
+                color: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                shadowColor: Colors.black.withValues(alpha: 0.1),
+              ),
               appBarTheme: const AppBarTheme(
                 backgroundColor: Color(0xFF2E7D32),
                 foregroundColor: Colors.white,
-                elevation: 2,
+                elevation: 0,
+                centerTitle: false,
               ),
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2E7D32),
                   foregroundColor: Colors.white,
+                  elevation: 2,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
                 ),
               ),
             ),
             darkTheme: ThemeData(
               primarySwatch: Colors.green,
-              primaryColor: const Color(0xFF2E7D32),
+              primaryColor: const Color(0xFF4CAF50),
+              scaffoldBackgroundColor: const Color(0xFF121212),
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF2E7D32),
+                seedColor: const Color(0xFF4CAF50),
                 brightness: Brightness.dark,
+                primary: const Color(0xFF4CAF50),
+                secondary: const Color(0xFF66BB6A),
+                surface: const Color(0xFF1E1E1E),
+                error: const Color(0xFFCF6679),
+                onPrimary: Colors.black,
+                onSecondary: Colors.black,
+                onSurface: const Color(0xFFE0E0E0),
+                onError: Colors.black,
               ),
               useMaterial3: true,
+              cardTheme: CardThemeData(
+                color: const Color(0xFF1E1E1E),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                shadowColor: Colors.black.withValues(alpha: 0.5),
+              ),
               appBarTheme: const AppBarTheme(
-                backgroundColor: Color(0xFF2E7D32),
+                backgroundColor: Color(0xFF1B5E20),
                 foregroundColor: Colors.white,
-                elevation: 2,
+                elevation: 0,
+                centerTitle: false,
               ),
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFF4CAF50),
+                  foregroundColor: Colors.black,
+                  elevation: 2,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: const Color(0xFF2C2C2C),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 2),
                 ),
               ),
             ),

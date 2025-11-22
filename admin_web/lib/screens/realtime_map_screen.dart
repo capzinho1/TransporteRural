@@ -4,6 +4,7 @@ import 'dart:async';
 import '../providers/admin_provider.dart';
 import '../models/bus.dart';
 import '../widgets/osm_map_widget.dart';
+import '../config/app_config.dart';
 
 class RealtimeMapScreen extends StatefulWidget {
   const RealtimeMapScreen({super.key});
@@ -23,10 +24,15 @@ class _RealtimeMapScreenState extends State<RealtimeMapScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
-    // Refrescar cada 5 segundos para simular tiempo real
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _loadData();
-    });
+    // Refrescar con frecuencia unificada para mapa en tiempo real
+    _refreshTimer = Timer.periodic(
+      Duration(seconds: AppConfig.realtimeMapRefreshIntervalSeconds),
+      (_) {
+        if (mounted) {
+          _loadData();
+        }
+      },
+    );
   }
 
   @override

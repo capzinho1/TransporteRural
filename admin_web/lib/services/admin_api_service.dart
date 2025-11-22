@@ -228,13 +228,22 @@ class AdminApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/routes/$id'),
+        headers: _getHeaders(),
       );
 
-      if (response.statusCode != 200) {
-        throw Exception('Error al eliminar ruta');
+      final responseBody = json.decode(response.body);
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return; // Éxito
+      } else if (response.statusCode == 400) {
+        // Error de validación (buses asignados, viajes activos, etc.)
+        throw Exception(responseBody['message'] ?? responseBody['error'] ?? 'No se puede eliminar la ruta');
+      } else {
+        throw Exception(responseBody['message'] ?? responseBody['error'] ?? 'Error al eliminar ruta');
       }
     } catch (e) {
-      throw Exception('Error: $e');
+      if (e is Exception) rethrow;
+      throw Exception('Error al eliminar ruta: ${e.toString()}');
     }
   }
 

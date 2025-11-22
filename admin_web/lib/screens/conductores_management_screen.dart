@@ -50,36 +50,41 @@ class _ConductoresManagementScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Gestión de Conductores',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Gestión de Conductores',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${conductores.length} conductores registrados',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
+                            const SizedBox(height: 4),
+                            Text(
+                              '${conductores.length} conductores registrados',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showConductorDialog(context, null),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Nuevo Conductor'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
+                      const SizedBox(width: 16),
+                      Flexible(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showConductorDialog(context, null),
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Nuevo Conductor'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
                           ),
                         ),
                       ),
@@ -451,7 +456,7 @@ class _ConductoresManagementScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: selectedStatus,
+                      initialValue: selectedStatus,
                       decoration: const InputDecoration(
                         labelText: 'Estado',
                         prefixIcon: Icon(Icons.drive_eta),
@@ -577,9 +582,8 @@ class _ConductoresManagementScreenState
 
                 // Agregar campos adicionales
                 conductorData['active'] = isActive;
-                if (conductor != null) {
-                  conductorData['driver_status'] = selectedStatus;
-                }
+                // Agregar driver_status tanto para crear como para editar
+                conductorData['driver_status'] = selectedStatus;
 
                 bool success;
 
@@ -636,7 +640,9 @@ class _ConductoresManagementScreenState
                       conductor.id, usuarioActualizado);
                 }
 
-                if (success && context.mounted) {
+                if (!context.mounted) return;
+
+                if (success) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -646,6 +652,18 @@ class _ConductoresManagementScreenState
                             : 'Conductor actualizado exitosamente',
                       ),
                       backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  // Mostrar error si falla la creación/actualización
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        adminProvider.error ??
+                            'Error al ${conductor == null ? 'registrar' : 'actualizar'} el conductor',
+                      ),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
                     ),
                   );
                 }

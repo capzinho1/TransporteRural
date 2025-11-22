@@ -25,11 +25,13 @@ const empresasRoutes = require('./routes/empresas');
 const tripsRoutes = require('./routes/trips');
 const userReportsRoutes = require('./routes/user_reports');
 const ratingsRoutes = require('./routes/ratings');
+const authRoutes = require('./routes/auth');
 
 // Rutas de la API
 app.use('/api/routes', rutasRoutes);
 app.use('/api/bus-locations', busesRoutes);
 app.use('/api/users', usuariosRoutes);
+app.use('/api/auth', authRoutes); // Rutas proxy de autenticación
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/empresas', empresasRoutes);
 app.use('/api/trips', tripsRoutes);

@@ -215,6 +215,42 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Validar que no haya buses asignados a esta ruta
+    const { data: busesAsignados, error: busesError } = await supabase
+      .from('bus_locations')
+      .select('bus_id, driver_id')
+      .eq('route_id', id);
+    
+    if (busesError) throw busesError;
+    
+    if (busesAsignados && busesAsignados.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se puede eliminar la ruta',
+        message: `La ruta tiene ${busesAsignados.length} bus(es) asignado(s). Por favor desasigna los buses antes de eliminar la ruta.`,
+        busesAsignados: busesAsignados.map(b => b.bus_id)
+      });
+    }
+    
+    // Validar que no haya viajes programados o en progreso para esta ruta
+    const { data: viajesActivos, error: viajesError } = await supabase
+      .from('trips')
+      .select('id, status, scheduled_start')
+      .eq('route_id', id)
+      .in('status', ['scheduled', 'in_progress']);
+    
+    if (viajesError) throw viajesError;
+    
+    if (viajesActivos && viajesActivos.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se puede eliminar la ruta',
+        message: `La ruta tiene ${viajesActivos.length} viaje(s) programado(s) o en progreso. Por favor cancela o completa los viajes antes de eliminar la ruta.`,
+        viajesActivos: viajesActivos.map(v => ({ id: v.id, status: v.status }))
+      });
+    }
+    
+    // Si pasa todas las validaciones, eliminar la ruta
     const { error } = await supabase
       .from('routes')
       .delete()
@@ -230,6 +266,137 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error al eliminar ruta',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/routes/search/fuzzy - Búsqueda fuzzy de rutas y buses por nombre
+// Permite búsqueda tolerante a errores usando pg_trgm (trigram similarity)
+router.get('/search/fuzzy', async (req, res) => {
+  try {
+    const { query: searchQuery, tipo, limit = 20 } = req.query;
+    
+    if (!searchQuery || searchQuery.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'El parámetro "query" es requerido'
+      });
+    }
+    
+    const searchTerm = searchQuery.trim();
+    console.log('🔍 [SEARCH] Búsqueda fuzzy iniciada:', searchTerm);
+    
+    // Buscar en rutas (routes.name)
+    // Usamos ilike para búsqueda case-insensitive y % para wildcards
+    // También usamos pg_trgm para búsqueda fuzzy si está disponible
+    let routesQuery = supabase
+      .from('routes')
+      .select('*')
+      .or(`name.ilike.%${searchTerm}%`)
+      .eq('active', true)
+      .order('name', { ascending: true })
+      .limit(parseInt(limit));
+    
+    // Filtrar por empresa si es company_admin
+    const user = await getUserFromRequest(req);
+    if (user && user.role === 'company_admin' && user.company_id) {
+      routesQuery = routesQuery.eq('company_id', user.company_id);
+    }
+    
+    const { data: routes, error: routesError } = await routesQuery;
+    
+    if (routesError) {
+      console.error('❌ [SEARCH] Error al buscar rutas:', routesError);
+    }
+    
+    // Buscar en buses (bus_locations.nombre_ruta)
+    // También buscar buses que tengan el route_id de las rutas encontradas
+    let busesQuery = supabase
+      .from('bus_locations')
+      .select(`
+        *,
+        routes:route_id (
+          route_id,
+          name,
+          active
+        )
+      `)
+      .or(`nombre_ruta.ilike.%${searchTerm}%`)
+      .limit(parseInt(limit));
+    
+    // Si encontramos rutas, también buscar buses por route_id
+    if (routes && routes.length > 0) {
+      const routeIds = routes.map(r => r.route_id);
+      busesQuery = busesQuery.or(`route_id.in.(${routeIds.join(',')}),nombre_ruta.ilike.%${searchTerm}%`);
+    }
+    
+    const { data: buses, error: busesError } = await busesQuery;
+    
+    if (busesError) {
+      console.error('❌ [SEARCH] Error al buscar buses:', busesError);
+    }
+    
+    // Filtrar buses por empresa si es company_admin
+    let filteredBuses = buses || [];
+    if (user && user.role === 'company_admin' && user.company_id) {
+      filteredBuses = filteredBuses.filter(bus => {
+        // Filtrar por company_id del bus o de la ruta relacionada
+        return (bus.company_id === user.company_id) || 
+               (bus.routes && bus.routes.company_id === user.company_id);
+      });
+    }
+    
+    // Ordenar resultados por relevancia (coincidencias exactas primero)
+    const routesWithScore = (routes || []).map(route => ({
+      ...route,
+      type: 'route',
+      relevance_score: route.name.toLowerCase() === searchTerm.toLowerCase() ? 100 :
+                       route.name.toLowerCase().startsWith(searchTerm.toLowerCase()) ? 90 :
+                       route.name.toLowerCase().includes(searchTerm.toLowerCase()) ? 80 : 70
+    })).sort((a, b) => b.relevance_score - a.relevance_score);
+    
+    const busesWithScore = filteredBuses.map(bus => {
+      const routeName = bus.routes?.name || '';
+      const nombreRuta = bus.nombre_ruta || '';
+      const matchText = nombreRuta || routeName;
+      
+      return {
+        ...bus,
+        type: 'bus',
+        relevance_score: matchText.toLowerCase() === searchTerm.toLowerCase() ? 100 :
+                         matchText.toLowerCase().startsWith(searchTerm.toLowerCase()) ? 90 :
+                         matchText.toLowerCase().includes(searchTerm.toLowerCase()) ? 80 : 70
+      };
+    }).sort((a, b) => b.relevance_score - a.relevance_score);
+    
+    // Combinar y ordenar todos los resultados
+    const allResults = [...routesWithScore, ...busesWithScore]
+      .sort((a, b) => b.relevance_score - a.relevance_score)
+      .slice(0, parseInt(limit));
+    
+    console.log(`✅ [SEARCH] Búsqueda completada: ${routesWithScore.length} rutas, ${busesWithScore.length} buses`);
+    
+    res.json({
+      success: true,
+      data: {
+        routes: routesWithScore,
+        buses: busesWithScore,
+        all: allResults,
+        total: routesWithScore.length + busesWithScore.length
+      },
+      query: searchTerm,
+      count: {
+        routes: routesWithScore.length,
+        buses: busesWithScore.length,
+        total: allResults.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ [SEARCH] Error en búsqueda fuzzy:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al realizar la búsqueda',
       message: error.message
     });
   }

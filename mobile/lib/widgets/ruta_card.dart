@@ -9,21 +9,24 @@ class RutaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       margin: EdgeInsets.zero,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Colors.blue[50]!,
-          ],
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.3)
+              : const Color(0xFF2E7D32).withValues(alpha: 0.2),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.5)
+                : Colors.black.withValues(alpha: 0.08),
             blurRadius: 15,
             offset: const Offset(0, 6),
             spreadRadius: 0,
@@ -45,7 +48,7 @@ class RutaCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey[900],
+                      color: isDark ? const Color(0xFFE0E0E0) : Colors.grey[900],
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -56,22 +59,25 @@ class RutaCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2196F3), Color(0xFF42A5F5)],
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]
+                          : [const Color(0xFF2E7D32), const Color(0xFF4CAF50)],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blue.withValues(alpha: 0.3),
+                        color: (isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32))
+                            .withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Text(
+                  child: Text(
                     'ACTIVA',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: isDark ? Colors.black : Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -98,11 +104,12 @@ class RutaCard extends StatelessWidget {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Inicio',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFE0E0E0) : Colors.grey[900],
                             ),
                           ),
                         ],
@@ -116,11 +123,12 @@ class RutaCard extends StatelessWidget {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Fin',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFE0E0E0) : Colors.grey[900],
                             ),
                           ),
                         ],
@@ -136,12 +144,15 @@ class RutaCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue[600],
+                        color: isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32),
                       ),
                     ),
                     Text(
                       '${ruta.stops.length} paradas',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -157,7 +168,10 @@ class RutaCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '${ruta.stops.length} paradas',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
@@ -169,30 +183,24 @@ class RutaCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF2E7D32),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      _showRutaDetails(context);
+                    },
+                    icon: const Icon(Icons.info_outline_rounded, size: 18),
+                    label: const Text(
+                      'Detalles',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32),
+                      side: BorderSide(
+                        color: isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32),
                         width: 2,
                       ),
-                    ),
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        _showRutaDetails(context);
-                      },
-                      icon: const Icon(Icons.info_outline_rounded, size: 18),
-                      label: const Text(
-                        'Detalles',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF2E7D32),
-                        side: BorderSide.none,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
@@ -201,13 +209,16 @@ class RutaCard extends StatelessWidget {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]
+                            : [const Color(0xFF2E7D32), const Color(0xFF4CAF50)],
                       ),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                          color: (isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32))
+                              .withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -228,7 +239,7 @@ class RutaCard extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
-                        foregroundColor: Colors.white,
+                        foregroundColor: isDark ? Colors.black : Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
